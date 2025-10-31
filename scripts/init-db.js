@@ -10,9 +10,9 @@ import { createTables } from '../src/lib/db/init.js'
 
 async function initializeDatabase() {
   try {
-    ////console.log('🚀 Initializing database...')
+    //console.log('🚀 Initializing database...')
     await createTables()
-    ////console.log('✅ Database initialized successfully!')
+    //console.log('✅ Database initialized successfully!')
     process.exit(0)
   } catch (error) {
     console.error('❌ Failed to initialize database:', error)
