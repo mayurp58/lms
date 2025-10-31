@@ -68,6 +68,7 @@ export default function DashboardLayout({ children, requiredRole }) {
         { name: 'Commissions', href: '/admin/commissions', icon: '💳' },
         { name: 'Applications', href: '/admin/applications', icon: '📋' },
         { name: 'Reports', href: '/admin/reports', icon: '🔍' },
+        { name: 'My Profile', href: '/profile', icon: '⚙️' },
       )
     } else if (user.role === 'admin') {
       items.push(
@@ -75,27 +76,31 @@ export default function DashboardLayout({ children, requiredRole }) {
         { name: 'User Management', href: '/admin/users', icon: '👥' },
         { name: 'Disbursements', href: '/admin/disbursements', icon: '💰' },
         { name: 'Commissions', href: '/admin/commissions', icon: '💳' },
-        { name: 'Applications', href: '/admin/applications', icon: '📋' }
+        { name: 'Applications', href: '/admin/applications', icon: '📋' },
+        { name: 'My Profile', href: '/profile', icon: '⚙️' },
       )
     } else if (user.role === 'operator') {
       items.push(
         { name: 'Dashboard', href: '/operator', icon: '📊' },
         { name: 'Applications', href: '/operator/applications', icon: '📋' },
         { name: 'Documents', href: '/operator/documents', icon: '📄' },
-        { name: 'Customers', href: '/operator/customers', icon: '👤' }
+        { name: 'Customers', href: '/operator/customers', icon: '👤' },
+        { name: 'My Profile', href: '/profile', icon: '⚙️' },
       )
     } else if (user.role === 'banker') {
       items.push(
         { name: 'Dashboard', href: '/banker', icon: '📊' },
         { name: 'Applications', href: '/banker/applications', icon: '📋' },
-        { name: 'Reports', href: '/banker/reports', icon: '📈' }
+        { name: 'Reports', href: '/banker/reports', icon: '📈' },
+        { name: 'My Profile', href: '/profile', icon: '⚙️' },
       )
     } else if (user.role === 'connector') {
       items.push(
         { name: 'Dashboard', href: '/connector', icon: '📊' },
         { name: 'Customers', href: '/connector/customers', icon: '👤' },
         { name: 'Applications', href: '/connector/applications', icon: '📋' },
-        { name: 'Commissions', href: '/connector/commissions', icon: '💳' }
+        { name: 'Commissions', href: '/connector/commissions', icon: '💳' },
+        { name: 'My Profile', href: '/profile', icon: '⚙️' },
       )
     }
 
@@ -143,7 +148,7 @@ export default function DashboardLayout({ children, requiredRole }) {
 
           <div className="flex items-center space-x-4">
             {/* User Info */}
-            <div className="hidden md:flex items-center space-x-3 bg-gray-50 rounded-full px-4 py-2">
+            {/* <div className="hidden md:flex items-center space-x-3 bg-gray-50 rounded-full px-4 py-2">
               <div className="h-8 w-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                 <span className="text-white font-semibold text-sm">
                   {user.first_name?.[0]}{user.last_name?.[0]}
@@ -153,7 +158,7 @@ export default function DashboardLayout({ children, requiredRole }) {
                 <p className="font-medium text-gray-900">{user.first_name} {user.last_name}</p>
                 <p className="text-gray-500 capitalize">{user.role?.replace('_', ' ')}</p>
               </div>
-            </div>
+            </div> */}
 
             {/* Logout Button */}
             <button
