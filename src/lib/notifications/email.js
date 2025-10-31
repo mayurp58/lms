@@ -181,7 +181,7 @@ export async function sendEmail(templateName, recipientEmail, data) {
     }
 
     const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Email sent:', { to: recipientEmail, template: templateName, messageId: info.messageId })
+    //console.log('✅ Email sent:', { to: recipientEmail, template: templateName, messageId: info.messageId })
     
     return { success: true, messageId: info.messageId }
   } catch (error) {

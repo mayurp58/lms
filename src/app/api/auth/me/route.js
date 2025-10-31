@@ -9,11 +9,11 @@ export async function GET(request) {
     let userRole = request.headers.get('x-user-role')
     let userEmail = request.headers.get('x-user-email')
 
-    console.log('🔍 /api/auth/me - Headers:', { userId, userRole, userEmail })
+    //console.log('🔍 /api/auth/me - Headers:', { userId, userRole, userEmail })
 
     // If no headers, try to decode token directly
     if (!userId) {
-      console.log('🔄 No headers found, trying to decode token directly...')
+      //console.log('🔄 No headers found, trying to decode token directly...')
       
       const token = request.cookies.get('auth-token')?.value
       
@@ -30,7 +30,7 @@ export async function GET(request) {
         userRole = decoded.role
         userEmail = decoded.email
         
-        console.log('✅ Token decoded directly:', { userId, userRole, userEmail })
+        //console.log('✅ Token decoded directly:', { userId, userRole, userEmail })
       } catch (tokenError) {
         console.error('❌ Token verification failed:', tokenError.message)
         return NextResponse.json(

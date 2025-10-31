@@ -6,7 +6,7 @@ export async function POST(request) {
     const body = await request.json()
     const { trigger, entity_id, entity_type } = body
 
-    console.log('🔄 Workflow triggered:', { trigger, entity_id, entity_type })
+    //console.log('🔄 Workflow triggered:', { trigger, entity_id, entity_type })
 
     switch (trigger) {
       case 'document_verified':
@@ -70,12 +70,12 @@ async function handleDocumentVerified(documentId) {
 
     const docStatus = docStatusResult[0]
 
-    console.log('📄 Document verification status:', {
+    /*console.log('📄 Document verification status:', {
       loanApplicationId,
       required_count: docStatus.required_count,
       verified_required_count: docStatus.verified_required_count,
       current_status: docStatus.current_status
-    })
+    })*/
 
     // If all required documents are verified, move to banker queue
     if (docStatus.required_count > 0 && 
@@ -101,7 +101,7 @@ async function handleDocumentVerified(documentId) {
         ]
       )
 
-      console.log('✅ Application moved to banker queue:', loanApplicationId)
+      //console.log('✅ Application moved to banker queue:', loanApplicationId)
     }
 
   } catch (error) {
@@ -129,7 +129,7 @@ async function handleApplicationApproved(applicationId) {
       WHERE id = ?
     `, [application.approved_amount, application.connector_id])
 
-    console.log('✅ Updated connector statistics for approval:', application.connector_id)
+    //console.log('✅ Updated connector statistics for approval:', application.connector_id)
 
   } catch (error) {
     console.error('❌ Error in handleApplicationApproved:', error)
@@ -140,7 +140,7 @@ async function handleApplicationApproved(applicationId) {
 async function handleApplicationRejected(applicationId) {
   try {
     // Could add any rejection-specific logic here
-    console.log('📋 Application rejected workflow processed:', applicationId)
+    //console.log('📋 Application rejected workflow processed:', applicationId)
   } catch (error) {
     console.error('❌ Error in handleApplicationRejected:', error)
   }

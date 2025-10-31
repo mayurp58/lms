@@ -91,20 +91,20 @@ export async function GET(request) {
       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
     `
 
-    console.log('Disbursements Query:', applicationsQuery)
-    console.log('Query Params:', queryParams)
+    //console.log('Disbursements Query:', applicationsQuery)
+    //console.log('Query Params:', queryParams)
 
     const applications = await executeQuery(applicationsQuery, queryParams)
 
-    console.log('Applications result:', applications.length, 'records')
+    //console.log('Applications result:', applications.length, 'records')
     if (applications.length > 0) {
-      console.log('First application sample:', {
-        id: applications[0].id,
+      /*console.log('First application sample:', {
+        id: applications[0].id, 
         approved_amount: applications[0].approved_amount,
         disbursed_amount: applications[0].disbursed_amount,
         disbursed_at: applications[0].disbursed_at,
         commission_percentage: applications[0].commission_percentage
-      })
+      })*/
     }
 
     return NextResponse.json({

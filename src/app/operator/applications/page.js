@@ -36,7 +36,7 @@ export default function OperatorApplicationsPage() {
       params.append('page', filters.page.toString())
       params.append('limit', filters.limit.toString())
   
-      console.log('Fetching with params:', params.toString())
+      //console.log('Fetching with params:', params.toString())
   
       const res = await fetch(`/api/operator/applications?${params}`)
       const data = await res.json()

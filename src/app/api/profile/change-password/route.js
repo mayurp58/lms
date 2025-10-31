@@ -65,7 +65,7 @@ export async function POST(request) {
 
     // Update password
     const updateQuery = 'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?'
-    console.log(updateQuery)
+    //console.log(updateQuery)
     await executeQuery(updateQuery, [hashedPassword, userId])
 
     // Log the activity

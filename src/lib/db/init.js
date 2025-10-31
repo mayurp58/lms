@@ -287,17 +287,17 @@ const createTables = async () => {
   ]
 
   try {
-    console.log('🚀 Starting database initialization...')
+    //console.log('🚀 Starting database initialization...')
     
     for (let i = 0; i < tables.length; i++) {
       await executeQuery(tables[i])
-      console.log(`✅ Table ${i + 1}/${tables.length} created successfully`)
+      //console.log(`✅ Table ${i + 1}/${tables.length} created successfully`)
     }
 
-    console.log('📦 Creating initial data...')
+    //console.log('📦 Creating initial data...')
     await insertInitialData()
     
-    console.log('✅ Database initialization completed successfully!')
+    //console.log('✅ Database initialization completed successfully!')
     
   } catch (error) {
     console.error('❌ Database initialization failed:', error)

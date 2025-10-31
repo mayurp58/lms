@@ -37,7 +37,7 @@ export default function CustomerDocumentsPage({ params }) {
   }
 
   const handleUploadComplete = (uploadedDoc) => {
-    console.log('Document uploaded:', uploadedDoc)
+    //console.log('Document uploaded:', uploadedDoc)
     // Refresh the documents list
     setRefreshKey(prev => prev + 1)
   }

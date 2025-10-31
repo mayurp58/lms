@@ -11,7 +11,7 @@ export default function DocumentUploadForm({ customerId, onUploadComplete }) {
   const [dragActive, setDragActive] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  console.log('📤 DocumentUploadForm initialized with customerId:', customerId)
+  //console.log('📤 DocumentUploadForm initialized with customerId:', customerId)
 
   useEffect(() => {
     fetchDocumentTypes()
@@ -19,14 +19,14 @@ export default function DocumentUploadForm({ customerId, onUploadComplete }) {
 
   const fetchDocumentTypes = async () => {
     try {
-      console.log('📋 Fetching document types...')
+      //console.log('📋 Fetching document types...')
       const res = await fetch('/api/document-types')
       const data = await res.json()
-      console.log('📋 Document types response:', data)
+      //console.log('📋 Document types response:', data)
       
       if (data.success) {
         setDocumentTypes(data.data)
-        console.log('📋 Document types loaded:', data.data.length)
+        //console.log('📋 Document types loaded:', data.data.length)
       } else {
         setError('Failed to load document types: ' + data.message)
       }
@@ -38,7 +38,7 @@ export default function DocumentUploadForm({ customerId, onUploadComplete }) {
   }
 
   const handleFileSelect = (file) => {
-    console.log('📁 File selected:', { name: file.name, size: file.size, type: file.type })
+    //console.log('📁 File selected:', { name: file.name, size: file.size, type: file.type })
     setSelectedFile(file)
     setError('')
   }
@@ -75,7 +75,7 @@ export default function DocumentUploadForm({ customerId, onUploadComplete }) {
       return
     }
 
-    console.log('🚀 Starting upload:', {
+    //console.log('🚀 Starting upload:', {
       customerId,
       documentTypeId: selectedDocType,
       fileName: selectedFile.name,
@@ -91,20 +91,20 @@ export default function DocumentUploadForm({ customerId, onUploadComplete }) {
       formData.append('customerId', customerId)
       formData.append('documentTypeId', selectedDocType)
 
-      console.log('📤 Sending upload request...')
+      //console.log('📤 Sending upload request...')
 
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       })
 
-      console.log('📤 Upload response status:', res.status)
+      //console.log('📤 Upload response status:', res.status)
 
       const data = await res.json()
-      console.log('📤 Upload response data:', data)
+      //console.log('📤 Upload response data:', data)
 
       if (data.success) {
-        console.log('✅ Upload successful:', data.data)
+        //console.log('✅ Upload successful:', data.data)
         setSelectedFile(null)
         setSelectedDocType('')
         if (onUploadComplete) {

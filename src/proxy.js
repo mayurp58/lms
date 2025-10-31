@@ -20,7 +20,7 @@ export default async function proxy(request) {
   const { pathname } = request.nextUrl
   const token = request.cookies.get('auth-token')?.value
 
-  console.log('🔍 Proxy check:', { pathname, hasToken: !!token })
+  //console.log('🔍 Proxy check:', { pathname, hasToken: !!token })
 
   // Allow public routes and static assets
   if (
@@ -30,13 +30,13 @@ export default async function proxy(request) {
     pathname.startsWith('/favicon.ico') ||
     pathname.startsWith('/public/')
   ) {
-    console.log('✅ Public route allowed:', pathname)
+    //console.log('✅ Public route allowed:', pathname)
     return NextResponse.next()
   }
 
   // Redirect to login if no token for protected routes
   if (!token) {
-    console.log('❌ No token, redirecting to login from:', pathname)
+    //console.log('❌ No token, redirecting to login from:', pathname)
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
@@ -46,12 +46,12 @@ export default async function proxy(request) {
   try {
     const decoded = verifyToken(token)
     
-    console.log('✅ User authenticated:', { 
+    /*console.log('✅ User authenticated:', { 
       userId: decoded.userId, 
       role: decoded.role, 
       email: decoded.email,
       pathname 
-    })
+    })*/
 
     // Set headers for all authenticated requests
     const requestHeaders = new Headers(request.headers)
@@ -61,22 +61,22 @@ export default async function proxy(request) {
 
     // Simple role-based redirects (only for obvious mismatches)
     if (pathname.startsWith('/admin/') && !['admin', 'super_admin'].includes(decoded.role)) {
-      console.log('❌ Admin access denied for role:', decoded.role)
+      //console.log('❌ Admin access denied for role:', decoded.role)
       return NextResponse.redirect(new URL('/unauthorized', request.url))
     }
 
     if (pathname.startsWith('/operator/') && decoded.role !== 'operator' && decoded.role !== 'super_admin') {
-      console.log('❌ Operator access denied for role:', decoded.role)
+      //console.log('❌ Operator access denied for role:', decoded.role)
       return NextResponse.redirect(new URL('/unauthorized', request.url))
     }
 
     if (pathname.startsWith('/banker/') && decoded.role !== 'banker' && decoded.role !== 'super_admin') {
-      console.log('❌ Banker access denied for role:', decoded.role)
+      //console.log('❌ Banker access denied for role:', decoded.role)
       return NextResponse.redirect(new URL('/unauthorized', request.url))
     }
 
     if (pathname.startsWith('/connector/') && decoded.role !== 'connector' && decoded.role !== 'super_admin') {
-      console.log('❌ Connector access denied for role:', decoded.role)
+      //console.log('❌ Connector access denied for role:', decoded.role)
       return NextResponse.redirect(new URL('/unauthorized', request.url))
     }
 

@@ -7,11 +7,11 @@ import { generateAgentCode } from '@/lib/utils'
 // GET - Fetch all users with pagination and filters
 export async function GET(request) {
   try {
-    console.log('📊 Users API called')
+    //console.log('📊 Users API called')
     
     // Check if user is authorized (should be super_admin)
     const userRole = request.headers.get('x-user-role')
-    console.log('👤 User role:', userRole)
+    //console.log('👤 User role:', userRole)
     
     if (userRole !== 'super_admin') {
       return NextResponse.json(
@@ -27,7 +27,7 @@ export async function GET(request) {
     const status = searchParams.get('status')
     const search = searchParams.get('search')
 
-    console.log('🔍 Query params:', { page, limit, role, status, search })
+    //console.log('🔍 Query params:', { page, limit, role, status, search })
 
     const offset = (page - 1) * limit
 
@@ -54,8 +54,8 @@ export async function GET(request) {
       ? 'WHERE ' + whereConditions.join(' AND ')
       : ''
 
-    console.log('📝 WHERE clause:', whereClause)
-    console.log('📝 Query params:', queryParams)
+    //console.log('📝 WHERE clause:', whereClause)
+    //console.log('📝 Query params:', queryParams)
 
     // Get total count
     const countQuery = `
@@ -65,10 +65,10 @@ export async function GET(request) {
       ${whereClause}
     `
     
-    console.log('🔢 Count query:', countQuery)
+    //console.log('🔢 Count query:', countQuery)
     const countResult = await executeQuery(countQuery, queryParams)
     const total = countResult[0].total
-    console.log('📊 Total users found:', total)
+    //console.log('📊 Total users found:', total)
 
     // Get users with pagination - use the new method
     const baseUsersQuery = `
@@ -86,12 +86,12 @@ export async function GET(request) {
       ORDER BY u.created_at DESC
     `
 
-    console.log('👥 Base users query:', baseUsersQuery)
-    console.log('👥 Params:', queryParams)
-    console.log('👥 Limit:', limit, 'Offset:', offset)
+    //console.log('👥 Base users query:', baseUsersQuery)
+    //console.log('👥 Params:', queryParams)
+    //console.log('👥 Limit:', limit, 'Offset:', offset)
 
     const users = await executeQueryWithLimit(baseUsersQuery, queryParams, limit, offset)
-    console.log('✅ Users fetched:', users.length)
+    //console.log('✅ Users fetched:', users.length)
 
     return NextResponse.json({
       success: true,

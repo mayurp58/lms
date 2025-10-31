@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
     const userRole = request.headers.get('x-user-role')
     const { id } = await params
 
-    console.log('📋 Get customer called, ID:', id, 'User:', userId, 'Role:', userRole)
+    //console.log('📋 Get customer called, ID:', id, 'User:', userId, 'Role:', userRole)
 
     if (!userId) {
       return NextResponse.json(
@@ -83,7 +83,7 @@ export async function PUT(request, { params }) {
       const userRole = request.headers.get('x-user-role')
       const { id } = await params
   
-      console.log('✏️ Update customer called, ID:', id, 'User:', userId, 'Role:', userRole)
+      //console.log('✏️ Update customer called, ID:', id, 'User:', userId, 'Role:', userRole)
   
       if (!userId) {
         return NextResponse.json(
@@ -159,7 +159,7 @@ export async function PUT(request, { params }) {
         }
       }
   
-      console.log('📅 Original date:', date_of_birth, 'Formatted date:', formattedDateOfBirth)
+      //console.log('📅 Original date:', date_of_birth, 'Formatted date:', formattedDateOfBirth)
   
       // Update customer (excluding Aadhar and PAN as they shouldn't be changed)
       await executeQuery(

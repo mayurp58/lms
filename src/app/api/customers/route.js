@@ -9,7 +9,7 @@ export async function GET(request) {
     const userId = request.headers.get('x-user-id')
     const userRole = request.headers.get('x-user-role')
 
-    console.log('📊 Customers API called, User ID:', userId, 'Role:', userRole)
+    //console.log('📊 Customers API called, User ID:', userId, 'Role:', userRole)
 
     if (!userId) {
       return NextResponse.json(
@@ -63,8 +63,8 @@ export async function GET(request) {
       ? 'WHERE ' + whereConditions.join(' AND ')
       : ''
 
-    console.log('📝 WHERE clause:', whereClause)
-    console.log('📝 Query params:', queryParams)
+    //console.log('📝 WHERE clause:', whereClause)
+    //console.log('📝 Query params:', queryParams)
 
     // Get total count
     const countQuery = `
@@ -73,10 +73,10 @@ export async function GET(request) {
       ${whereClause}
     `
     
-    console.log('🔢 Count query:', countQuery)
+    //console.log('🔢 Count query:', countQuery)
     const countResult = await executeQuery(countQuery, queryParams)
     const total = countResult[0].total
-    console.log('📊 Total customers found:', total)
+    //console.log('📊 Total customers found:', total)
 
     // Get customers with pagination - build the complete query with LIMIT directly
     const customersQuery = `
@@ -97,11 +97,11 @@ export async function GET(request) {
       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
     `
 
-    console.log('👥 Customers query:', customersQuery)
-    console.log('👥 Query params:', queryParams)
+    //console.log('👥 Customers query:', customersQuery)
+    //console.log('👥 Query params:', queryParams)
 
     const customers = await executeQuery(customersQuery, queryParams)
-    console.log('✅ Customers fetched:', customers.length)
+    //console.log('✅ Customers fetched:', customers.length)
 
     return NextResponse.json({
       success: true,
@@ -131,7 +131,7 @@ export async function POST(request) {
       const userId = request.headers.get('x-user-id')
       const userRole = request.headers.get('x-user-role')
   
-      console.log('👤 Creating customer, User ID:', userId, 'Role:', userRole)
+      //console.log('👤 Creating customer, User ID:', userId, 'Role:', userRole)
   
       if (!userId || userRole !== 'connector') {
         return NextResponse.json(
@@ -164,7 +164,7 @@ export async function POST(request) {
       }
   
       const connectorId = connectorResult[0].id
-      console.log('🔗 Connector ID:', connectorId)
+      //console.log('🔗 Connector ID:', connectorId)
   
       const {
         first_name,
@@ -196,7 +196,7 @@ export async function POST(request) {
         }
       }
   
-      console.log('📅 Original date:', date_of_birth, 'Formatted date:', formattedDateOfBirth)
+      //console.log('📅 Original date:', date_of_birth, 'Formatted date:', formattedDateOfBirth)
   
       // Check if customer with same Aadhar or PAN already exists
       const existingCustomer = await executeQuery(
@@ -236,7 +236,7 @@ export async function POST(request) {
       )
   
       const customerId = result.insertId
-      console.log('✅ Customer created with ID:', customerId)
+      //console.log('✅ Customer created with ID:', customerId)
   
       // Update connector's total cases
       await executeQuery(

@@ -36,7 +36,7 @@ export function formatDate(date, options = {}) {
     
     // Check if the date is valid
     if (isNaN(dateObj.getTime())) {
-      console.log('Invalid date value:', date)
+      //console.log('Invalid date value:', date)
       return 'Invalid Date'
     }
     
@@ -76,7 +76,7 @@ export function formatDateTime(date, options = {}) {
     }
     
     if (isNaN(dateObj.getTime())) {
-      console.log('Invalid datetime value:', date)
+      //console.log('Invalid datetime value:', date)
       return 'Invalid Date'
     }
     

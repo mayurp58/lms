@@ -107,9 +107,9 @@ export async function GET(request) {
             );
           }
 
-          console.log(`✅ Created test user: ${user.email} (${user.role})`);
+          //console.log(`✅ Created test user: ${user.email} (${user.role})`);
         } else {
-          console.log(`ℹ️  User already exists: ${user.email}`);
+          //console.log(`ℹ️  User already exists: ${user.email}`);
         }
         
       } catch (error) {

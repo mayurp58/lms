@@ -23,7 +23,7 @@ async function createConnection() {
       
       // Test the connection
       const connection = await pool.getConnection()
-      console.log('✅ Database connected successfully')
+      //console.log('✅ Database connected successfully')
       connection.release()
     }
     return pool
@@ -43,9 +43,9 @@ export async function executeQuery(query, params = []) {
       return param === undefined ? null : param
     }) : []
     
-    console.log('🔍 Executing query:', query)
-    console.log('📝 With params:', cleanParams)
-    console.log('📝 Params types:', cleanParams.map(p => typeof p))
+    //console.log('🔍 Executing query:', query)
+    //console.log('📝 With params:', cleanParams)
+    //console.log('📝 Params types:', cleanParams.map(p => typeof p))
     
     const [results] = await connection.execute(query, cleanParams)
     return results
@@ -70,8 +70,8 @@ export async function executeQueryWithLimit(baseQuery, params = [], limit = 10, 
     // Add LIMIT and OFFSET directly to the query string to avoid parameter issues
     const fullQuery = `${baseQuery} LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`
     
-    console.log('🔍 Executing query with limit:', fullQuery)
-    console.log('📝 With params:', cleanParams)
+    //console.log('🔍 Executing query with limit:', fullQuery)
+    //console.log('📝 With params:', cleanParams)
     
     const [results] = await connection.execute(fullQuery, cleanParams)
     return results

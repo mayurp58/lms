@@ -35,7 +35,7 @@ export async function sendSMS(templateName, phoneNumber, data) {
 
     // Skip if no Twilio credentials
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-      console.log('📱 SMS skipped - No Twilio credentials configured')
+      //console.log('📱 SMS skipped - No Twilio credentials configured')
       return { success: true, skipped: true }
     }
 
@@ -47,7 +47,7 @@ export async function sendSMS(templateName, phoneNumber, data) {
       to: phoneNumber
     })
 
-    console.log('✅ SMS sent:', { to: phoneNumber, template: templateName, sid: result.sid })
+    //console.log('✅ SMS sent:', { to: phoneNumber, template: templateName, sid: result.sid })
     
     return { success: true, sid: result.sid }
   } catch (error) {

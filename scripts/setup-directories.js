@@ -9,16 +9,16 @@ const directories = [
 ]
 
 function createDirectories() {
-  console.log('📁 Creating upload directories...')
+  //console.log('📁 Creating upload directories...')
   
   directories.forEach(dir => {
     const dirPath = path.join(process.cwd(), dir)
     
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true })
-      console.log(`✅ Created: ${dir}`)
+      //console.log(`✅ Created: ${dir}`)
     } else {
-      console.log(`ℹ️  Already exists: ${dir}`)
+      //console.log(`ℹ️  Already exists: ${dir}`)
     }
   })
 
@@ -27,11 +27,11 @@ function createDirectories() {
     const gitkeepPath = path.join(process.cwd(), dir, '.gitkeep')
     if (!fs.existsSync(gitkeepPath)) {
       fs.writeFileSync(gitkeepPath, '')
-      console.log(`✅ Created .gitkeep in: ${dir}`)
+      //console.log(`✅ Created .gitkeep in: ${dir}`)
     }
   })
 
-  console.log('🎉 Upload directories setup completed!')
+  //console.log('🎉 Upload directories setup completed!')
 }
 
 // Run the setup

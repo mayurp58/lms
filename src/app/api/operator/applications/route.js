@@ -76,8 +76,8 @@ export async function GET(request) {
       LIMIT ${limit} OFFSET ${offset}
     `
 
-    console.log('Operator Applications Query:', applicationsQuery)
-    console.log('Query Params:', queryParams)
+    //console.log('Operator Applications Query:', applicationsQuery)
+    //console.log('Query Params:', queryParams)
 
     const applications = await executeQuery(applicationsQuery, queryParams)
 

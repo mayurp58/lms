@@ -83,8 +83,8 @@ export async function GET(request) {
       LIMIT ${limit} OFFSET ${offset}
     `
 
-    console.log('Applications Query:', applicationsQuery)
-    console.log('Query Params:', queryParams)
+    //console.log('Applications Query:', applicationsQuery)
+    //console.log('Query Params:', queryParams)
 
     const applications = await executeQuery(applicationsQuery, queryParams)
 
@@ -96,8 +96,8 @@ export async function GET(request) {
       ${whereClause}
     `
 
-    console.log('Count Query:', countQuery)
-    console.log('Count Params:', queryParams)
+    //console.log('Count Query:', countQuery)
+    //console.log('Count Params:', queryParams)
 
     const countResult = await executeQuery(countQuery, queryParams)
     const total = countResult[0]?.total || 0
