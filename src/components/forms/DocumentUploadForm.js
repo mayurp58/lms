@@ -75,12 +75,12 @@ export default function DocumentUploadForm({ customerId, onUploadComplete }) {
       return
     }
 
-    //console.log('🚀 Starting upload:', {
+    /*console.log('🚀 Starting upload:', {
       customerId,
       documentTypeId: selectedDocType,
       fileName: selectedFile.name,
       fileSize: selectedFile.size
-    })
+    })*/
 
     setUploading(true)
     setError('')
