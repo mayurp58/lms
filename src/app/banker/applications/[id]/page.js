@@ -1,146 +1,150 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
 import Link from 'next/link'
 
-export default function ApplicationReviewPage({ params }) {
+export default function BankerApplicationDetailPage({ params }) {
+  const renderedParams = React.use(params)
   const [applicationData, setApplicationData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [processing, setProcessing] = useState(false)
-  const [showApprovalForm, setShowApprovalForm] = useState(false)
-  const [showRejectionForm, setShowRejectionForm] = useState(false)
-  const router = useRouter()
-
-  const [approvalForm, setApprovalForm] = useState({
-    approved_amount: '',
+  const [activeTab, setActiveTab] = useState('overview')
+  
+  // Offer states
+  const [offerData, setOfferData] = useState({
+    offered_amount: '',
     interest_rate: '',
     tenure_months: '',
-    banker_remarks: '',
-    conditions: ''
+    processing_fee: '0',
+    terms_conditions: '',
+    special_features: '',
+    remarks: ''
   })
-
-  const [rejectionForm, setRejectionForm] = useState({
-    banker_remarks: ''
-  })
+  const [submittingOffer, setSubmittingOffer] = useState(false)
+  const [offerErrors, setOfferErrors] = useState({})
 
   useEffect(() => {
-    const getApplication = async () => {
-      const { id } = await params
-      fetchApplication(id)
-    }
-    getApplication()
-  }, [params])
+    fetchApplication()
+  }, [renderedParams.id])
 
-  const fetchApplication = async (id) => {
+  const fetchApplication = async () => {
     try {
-      const res = await fetch(`/api/banker/applications/${id}`)
+      const res = await fetch(`/api/banker/applications/${renderedParams.id}`)
       const data = await res.json()
 
       if (data.success) {
         setApplicationData(data.data)
-        // Set default approval values
-        setApprovalForm({
-          approved_amount: data.data.application.requested_amount?.toString() || '',
-          interest_rate: data.data.application.interest_rate_min?.toString() || '',
-          tenure_months: '12',
-          banker_remarks: '',
-          conditions: ''
-        })
+        
+        // If banker already has an offer, populate the form
+        if (data.data.my_offer) {
+          const offer = data.data.my_offer
+          setOfferData({
+            offered_amount: offer.offered_amount.toString(),
+            interest_rate: offer.interest_rate.toString(),
+            tenure_months: offer.tenure_months.toString(),
+            processing_fee: offer.processing_fee?.toString() || '0',
+            terms_conditions: offer.terms_conditions || '',
+            special_features: offer.special_features || '',
+            remarks: offer.remarks || ''
+          })
+        } else {
+          // Set default values based on application
+          setOfferData(prev => ({
+            ...prev,
+            offered_amount: data.data.application.requested_amount.toString()
+          }))
+        }
       } else {
         setError(data.message)
       }
     } catch (error) {
+      console.error('Error fetching application:', error)
       setError('Failed to fetch application details')
     }
     setLoading(false)
   }
 
-  const handleApprove = async () => {
-    if (!approvalForm.approved_amount || !approvalForm.interest_rate || !approvalForm.tenure_months) {
-      alert('Please fill in all required fields for approval')
-      return
+  const handleOfferChange = (field, value) => {
+    setOfferData(prev => ({ ...prev, [field]: value }))
+    // Clear error when user starts typing
+    if (offerErrors[field]) {
+      setOfferErrors(prev => ({ ...prev, [field]: '' }))
     }
-
-    setProcessing(true)
-    try {
-      const res = await fetch(`/api/banker/applications/${applicationData.application.id}/approve`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'approve',
-          ...approvalForm
-        }),
-      })
-
-      const data = await res.json()
-
-      if (data.success) {
-        router.push('/banker/applications?status=approved')
-      } else {
-        alert('Failed to approve application: ' + data.message)
-      }
-    } catch (error) {
-      alert('Error: ' + error.message)
-    }
-    setProcessing(false)
   }
 
-  const handleReject = async () => {
-    if (!rejectionForm.banker_remarks.trim()) {
-      alert('Please provide a reason for rejection')
-      return
+  const validateOffer = () => {
+    const errors = {}
+
+    if (!offerData.offered_amount || parseFloat(offerData.offered_amount) <= 0) {
+      errors.offered_amount = 'Valid offer amount is required'
     }
 
-    setProcessing(true)
-    try {
-      const res = await fetch(`/api/banker/applications/${applicationData.application.id}/approve`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'reject',
-          banker_remarks: rejectionForm.banker_remarks
-        }),
-      })
-
-      const data = await res.json()
-
-      if (data.success) {
-        router.push('/banker/applications?status=rejected')
-      } else {
-        alert('Failed to reject application: ' + data.message)
-      }
-    } catch (error) {
-      alert('Error: ' + error.message)
+    if (!offerData.interest_rate || parseFloat(offerData.interest_rate) <= 0 || parseFloat(offerData.interest_rate) > 50) {
+      errors.interest_rate = 'Interest rate must be between 0.1% and 50%'
     }
-    setProcessing(false)
+
+    if (!offerData.tenure_months || parseInt(offerData.tenure_months) <= 0 || parseInt(offerData.tenure_months) > 360) {
+      errors.tenure_months = 'Tenure must be between 1 and 360 months'
+    }
+
+    if (parseFloat(offerData.processing_fee) < 0) {
+      errors.processing_fee = 'Processing fee cannot be negative'
+    }
+
+    setOfferErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
-  const calculateMonthlyEMI = (amount, rate, tenure) => {
+  const calculateEMI = () => {
+    const amount = parseFloat(offerData.offered_amount)
+    const rate = parseFloat(offerData.interest_rate)
+    const tenure = parseInt(offerData.tenure_months)
+
     if (!amount || !rate || !tenure) return 0
+
     const monthlyRate = rate / (12 * 100)
-    const emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
-                (Math.pow(1 + monthlyRate, tenure) - 1)
-    return Math.round(emi)
+    return Math.round((amount * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
+                      (Math.pow(1 + monthlyRate, tenure) - 1))
   }
 
-  const calculateDebtToIncomeRatio = () => {
-    if (!applicationData?.application) return 0
-    const { monthly_income, existing_loans_amount } = applicationData.application
-    const emi = calculateMonthlyEMI(
-      parseFloat(approvalForm.approved_amount) || 0,
-      parseFloat(approvalForm.interest_rate) || 0,
-      parseInt(approvalForm.tenure_months) || 0
-    )
-    const totalMonthlyDebt = (existing_loans_amount || 0) / 12 + emi
-    return monthly_income > 0 ? ((totalMonthlyDebt / monthly_income) * 100).toFixed(1) : 0
+  const handleSubmitOffer = async () => {
+    if (!validateOffer()) {
+      return
+    }
+
+    setSubmittingOffer(true)
+    try {
+      const endpoint = `/api/banker/applications/${renderedParams.id}/offer`
+      const method = applicationData.my_offer ? 'PUT' : 'POST'
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          offered_amount: parseFloat(offerData.offered_amount),
+          interest_rate: parseFloat(offerData.interest_rate),
+          tenure_months: parseInt(offerData.tenure_months),
+          processing_fee: parseFloat(offerData.processing_fee),
+          terms_conditions: offerData.terms_conditions,
+          special_features: offerData.special_features,
+          remarks: offerData.remarks
+        })
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        alert(`Loan offer ${applicationData.my_offer ? 'updated' : 'submitted'} successfully!`)
+        fetchApplication() // Refresh data
+      } else {
+        alert('Error: ' + data.message)
+      }
+    } catch (error) {
+      alert('Error submitting offer: ' + error.message)
+    }
+    setSubmittingOffer(false)
   }
 
   if (loading) {
@@ -157,8 +161,9 @@ export default function ApplicationReviewPage({ params }) {
     return (
       <DashboardLayout requiredRole="banker">
         <div className="text-center py-8">
-          <p className="text-red-600">{error || 'Application not found'}</p>
-          <Link href="/banker/applications" className="text-blue-600 hover:text-blue-800 mt-2 inline-block">
+          <h3 className="text-lg font-medium text-gray-900">Unable to load application</h3>
+          <p className="text-gray-600 mt-1">{error || 'Application not found'}</p>
+          <Link href="/banker/applications" className="text-blue-600 hover:text-blue-800 mt-4 inline-block">
             ← Back to Applications
           </Link>
         </div>
@@ -166,10 +171,10 @@ export default function ApplicationReviewPage({ params }) {
     )
   }
 
-  const { application, documents, bankerInfo } = applicationData
-  const verifiedDocuments = documents.filter(doc => doc.verification_status === 'verified')
-  const requiredDocuments = documents.filter(doc => doc.is_required)
-  const allRequiredVerified = requiredDocuments.every(doc => doc.verification_status === 'verified')
+  const { application, documents = [], my_offer, competing_offers = [] } = applicationData
+  const monthlyEMI = calculateEMI()
+  const totalPayable = monthlyEMI * parseInt(offerData.tenure_months || 0)
+  const totalInterest = totalPayable - parseFloat(offerData.offered_amount || 0)
 
   return (
     <DashboardLayout requiredRole="banker">
@@ -177,513 +182,485 @@ export default function ApplicationReviewPage({ params }) {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Application Review</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Loan Application Review</h1>
             <p className="mt-1 text-sm text-gray-600">
-              {application.application_number} • {application.first_name} {application.last_name}
+              {application.application_number} - {application.customer_first_name} {application.customer_last_name}
             </p>
           </div>
           <div className="flex space-x-3">
-            <Link
-              href="/banker/applications"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
+            <Link href="/banker/applications" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
               ← Back to Applications
             </Link>
           </div>
         </div>
 
         {/* Status Banner */}
-        <div className={`rounded-md p-4 ${
-          application.status === 'verified' ? 'bg-blue-50 border border-blue-200' :
-          application.status === 'approved' ? 'bg-green-50 border border-green-200' :
-          application.status === 'rejected' ? 'bg-red-50 border border-red-200' :
-          'bg-yellow-50 border border-yellow-200'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(application.status)}`}>
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(application.status)}`}>
                 {application.status.replace('_', ' ').toUpperCase()}
               </span>
-              <div className="ml-4">
-                <p className="text-sm text-gray-700">
-                  Application submitted on {formatDate(application.created_at)}
-                </p>
-                {application.approved_at && (
-                  <p className="text-sm text-gray-700">
-                    Decision made on {formatDate(application.approved_at)}
-                  </p>
-                )}
+              
+              {my_offer && (
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  my_offer.status === 'selected' ? 'bg-green-100 text-green-800' :
+                  my_offer.status === 'active' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {my_offer.status === 'selected' && '✅ My Offer Selected'}
+                  {my_offer.status === 'active' && '💰 My Offer Submitted'}
+                  {my_offer.status === 'rejected' && '❌ My Offer Rejected'}
+                </span>
+              )}
+
+              <div>
+                <p className="font-semibold">{formatCurrency(application.requested_amount)} requested</p>
+                <p className="text-sm text-gray-600">{application.loan_category_name}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Your Approval Limit</p>
-              <p className="text-lg font-bold text-blue-600">{formatCurrency(bankerInfo.maxApprovalLimit)}</p>
-            </div>
+
+            {competing_offers.length > 0 && (
+              <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
+                {competing_offers.length + (my_offer ? 1 : 0)} Total Offers
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Application Overview Cards */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Loan Details */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Loan Request</h3>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Requested Amount</span>
-                  <p className="text-2xl font-bold text-blue-600">{formatCurrency(application.requested_amount)}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Category</span>
-                  <p className="text-sm text-gray-900">{application.loan_category_name}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Purpose</span>
-                  <p className="text-sm text-gray-900">{application.purpose}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Interest Rate Range</span>
-                  <p className="text-sm text-gray-900">{application.interest_rate_min}% - {application.interest_rate_max}%</p>
-                </div>
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            {[
+              { key: 'overview', label: 'Overview', icon: '📋' },
+              { key: 'documents', label: 'Documents', icon: '📄', badge: documents.length },
+              { key: 'offer', label: 'My Offer', icon: '💰' },
+              { key: 'competition', label: 'Competition', icon: '🏆', badge: competing_offers.length }
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeTab === tab.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span className="capitalize">{tab.label}</span>
+                {tab.badge > 0 && (
+                  <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        <div className="space-y-6">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Application Details */}
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Application Details</h3>
+                <dl className="space-y-3">
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Application Number</dt>
+                    <dd className="text-sm text-gray-900 font-mono">{application.application_number}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Loan Category</dt>
+                    <dd className="text-sm text-gray-900">{application.loan_category_name}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Requested Amount</dt>
+                    <dd className="text-sm font-semibold text-blue-600">{formatCurrency(application.requested_amount)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Applied Date</dt>
+                    <dd className="text-sm text-gray-900">{formatDate(application.created_at)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Received Date</dt>
+                    <dd className="text-sm text-gray-900">{formatDate(application.sent_at)}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Customer Information */}
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
+                <dl className="space-y-3">
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Name</dt>
+                    <dd className="text-sm text-gray-900">{application.customer_first_name} {application.customer_last_name}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Phone</dt>
+                    <dd className="text-sm text-gray-900">{application.customer_phone}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Email</dt>
+                    <dd className="text-sm text-gray-900">{application.customer_email || 'Not provided'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">Address</dt>
+                    <dd className="text-sm text-gray-900">
+                      {application.customer_address}, {application.customer_city}, {application.customer_state} - {application.customer_pincode}
+                    </dd>
+                  </div>
+                </dl>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Financial Profile */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Financial Profile</h3>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Monthly Income</span>
-                  <p className="text-lg font-semibold text-green-600">{formatCurrency(application.monthly_income)}</p>
+          {/* Documents Tab */}
+          {activeTab === 'documents' && (
+            <div className="space-y-6">
+              {documents.length > 0 ? (
+                <div className="grid gap-6">
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="bg-white shadow rounded-lg border border-gray-200">
+                      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <span className="text-blue-600 text-lg">📄</span>
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-medium text-gray-900">
+                                {doc.document_name || `Document ${doc.id}`}
+                              </h4>
+                              <p className="text-sm text-gray-500">Uploaded {formatDate(doc.created_at)}</p>
+                            </div>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(doc.verification_status || 'pending')}`}>
+                            {doc.verification_status === 'verified' ? '✅ Verified' : 
+                             doc.verification_status === 'rejected' ? '❌ Rejected' : 
+                             '⏳ Pending'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-6">
+                        {doc.file_path ? (
+                          <div className="text-center">
+                            <a 
+                              href={doc.file_path} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                            >
+                              📄 View Document
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-500">No file available</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Employment</span>
-                  <p className="text-sm text-gray-900">{application.employment_type?.replace('_', ' ')}</p>
+              ) : (
+                <div className="text-center py-12 bg-white shadow rounded-lg">
+                  <div className="w-24 h-24 mx-auto mb-4 text-gray-300 text-6xl">📄</div>
+                  <h3 className="text-lg font-medium text-gray-900">No Documents</h3>
+                  <p className="text-gray-500 mt-1">No documents available for this application.</p>
                 </div>
-                {application.company_name && (
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Company</span>
-                    <p className="text-sm text-gray-900">{application.company_name}</p>
-                  </div>
-                )}
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Work Experience</span>
-                  <p className="text-sm text-gray-900">{application.work_experience_years || 0} years</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Existing Loans</span>
-                  <p className="text-sm text-gray-900">{formatCurrency(application.existing_loans_amount || 0)}</p>
-                </div>
-                {application.cibil_score && (
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">CIBIL Score</span>
-                    <p className={`text-sm font-semibold ${
-                      application.cibil_score >= 750 ? 'text-green-600' :
-                      application.cibil_score >= 650 ? 'text-yellow-600' :
-                      'text-red-600'
+              )}
+            </div>
+          )}
+
+          {/* MY OFFER TAB - THE MAIN FEATURE */}
+          {activeTab === 'offer' && (
+            <div className="space-y-6">
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {my_offer ? 'Update My Loan Offer' : 'Submit Loan Offer'}
+                  </h3>
+                  {my_offer && (
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      my_offer.status === 'selected' ? 'bg-green-100 text-green-800' :
+                      my_offer.status === 'active' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
                     }`}>
-                      {application.cibil_score}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Document Status */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Document Status</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Total Documents</span>
-                  <span className="text-sm font-semibold text-gray-900">{documents.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Verified</span>
-                  <span className="text-sm font-semibold text-green-600">{verifiedDocuments.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Required</span>
-                  <span className="text-sm font-semibold text-blue-600">{requiredDocuments.length}</span>
-                </div>
-                <div className="pt-2">
-                  {allRequiredVerified ? (
-                    <div className="flex items-center text-green-600">
-                      <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-xs font-medium">All required documents verified</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-yellow-600">
-                      <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-xs font-medium">Some documents pending verification</span>
-                    </div>
+                      {my_offer.status === 'selected' && '✅ Selected'}
+                      {my_offer.status === 'active' && '💰 Active'}
+                      {my_offer.status === 'rejected' && '❌ Rejected'}
+                    </span>
                   )}
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Customer Details */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Full Name</dt>
-                <dd className="mt-1 text-sm text-gray-900">{application.first_name} {application.last_name}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                <dd className="mt-1 text-sm text-gray-900">{application.phone}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Email</dt>
-                <dd className="mt-1 text-sm text-gray-900">{application.email || 'Not provided'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Date of Birth</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {application.date_of_birth ? formatDate(application.date_of_birth) : 'Not provided'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Gender</dt>
-                <dd className="mt-1 text-sm text-gray-900">{application.gender || 'Not provided'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Marital Status</dt>
-                <dd className="mt-1 text-sm text-gray-900">{application.marital_status || 'Not provided'}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500">Address</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {application.address}, {application.city}, {application.state} - {application.pincode}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Connector</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {application.connector_first_name} {application.connector_last_name} ({application.agent_code})
-                </dd>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Documents List */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Submitted Documents</h3>
-            <div className="space-y-3">
-              {documents.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md">
-                  <div className="flex items-center space-x-3">
-                    <div className={`h-2 w-2 rounded-full ${
-                      doc.verification_status === 'verified' ? 'bg-green-500' :
-                      doc.verification_status === 'rejected' ? 'bg-red-500' :
-                      'bg-yellow-500'
-                    }`}></div>
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  {/* Offer Form */}
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-900 flex items-center">
-                        {doc.document_type_name}
-                        {doc.is_required && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                            Required
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-gray-500">{doc.file_name}</p>
-                      {doc.operator_remarks && (
-                        <p className="text-xs text-red-600 mt-1">{doc.operator_remarks}</p>
+                      <label className="block text-sm font-medium text-gray-700">Offered Amount *</label>
+                      <div className="mt-1 relative rounded-md shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">₹</span>
+                        </div>
+                        <input
+                          type="number"
+                          value={offerData.offered_amount}
+                          onChange={(e) => handleOfferChange('offered_amount', e.target.value)}
+                          className={`block w-full pl-7 pr-12 border text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                            offerErrors.offered_amount ? 'border-red-300' : 'border-gray-300'
+                          }`}
+                          placeholder="0.00"
+                          disabled={my_offer?.status === 'selected'}
+                        />
+                      </div>
+                      {offerErrors.offered_amount && (
+                        <p className="mt-1 text-sm text-red-600">{offerErrors.offered_amount}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Interest Rate (% per annum) *</label>
+                      <div className="mt-1 relative rounded-md shadow-sm">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={offerData.interest_rate}
+                          onChange={(e) => handleOfferChange('interest_rate', e.target.value)}
+                          className={`block w-full pr-12 border text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                            offerErrors.interest_rate ? 'border-red-300' : 'border-gray-300'
+                          }`}
+                          placeholder="0.0"
+                          disabled={my_offer?.status === 'selected'}
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">%</span>
+                        </div>
+                      </div>
+                      {offerErrors.interest_rate && (
+                        <p className="mt-1 text-sm text-red-600">{offerErrors.interest_rate}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Tenure (months) *</label>
+                      <input
+                        type="number"
+                        value={offerData.tenure_months}
+                        onChange={(e) => handleOfferChange('tenure_months', e.target.value)}
+                        className={`mt-1 block w-full text-gray-900 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                          offerErrors.tenure_months ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        placeholder="12"
+                        disabled={my_offer?.status === 'selected'}
+                      />
+                      {offerErrors.tenure_months && (
+                        <p className="mt-1 text-sm text-red-600">{offerErrors.tenure_months}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Processing Fee</label>
+                      <div className="mt-1 relative rounded-md shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">₹</span>
+                        </div>
+                        <input
+                          type="number"
+                          value={offerData.processing_fee}
+                          onChange={(e) => handleOfferChange('processing_fee', e.target.value)}
+                          className={`block w-full pl-7 text-gray-900 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                            offerErrors.processing_fee ? 'border-red-300' : 'border-gray-300'
+                          }`}
+                          placeholder="0.00"
+                          disabled={my_offer?.status === 'selected'}
+                        />
+                      </div>
+                      {offerErrors.processing_fee && (
+                        <p className="mt-1 text-sm text-red-600">{offerErrors.processing_fee}</p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(doc.verification_status)}`}>
-                      {doc.verification_status}
-                    </span>
-                    <a
-                      href={doc.file_path}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-xs"
-                    >
-                      View
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
-        {/* Decision Section */}
-        {application.status === 'verified' && (
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Make Decision</h3>
-              
-              {!allRequiredVerified && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    ⚠️ Warning: Not all required documents have been verified. Please ensure all required documents are verified before making a decision.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => {
-                    setShowApprovalForm(true)
-                    setShowRejectionForm(false)
-                  }}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Approve Loan
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowRejectionForm(true)
-                    setShowApprovalForm(false)
-                  }}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Reject Application
-                </button>
-              </div>
-
-              {/* Approval Form */}
-              {showApprovalForm && (
-                <div className="mt-6 border-t pt-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Loan Approval Details</h4>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Approved Amount (₹) *</label>
-                      <input
-                        type="number"
-                        value={approvalForm.approved_amount}
-                        onChange={(e) => setApprovalForm(prev => ({ ...prev, approved_amount: e.target.value }))}
-                        min="1"
-                        max={Math.min(application.requested_amount, bankerInfo.maxApprovalLimit)}
-                        placeholder="Enter approved amount"
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Interest Rate (%) *</label>
-                      <input
-                        type="number"
-                        value={approvalForm.interest_rate}
-                        onChange={(e) => setApprovalForm(prev => ({ ...prev, interest_rate: e.target.value }))}
-                        min={application.interest_rate_min}
-                        max={application.interest_rate_max}
-                        step="0.1"
-                        placeholder="Enter interest rate"
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Tenure (Months) *</label>
-                      <select
-                        value={approvalForm.tenure_months}
-                        onChange={(e) => setApprovalForm(prev => ({ ...prev, tenure_months: e.target.value }))}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                      >
-                        <option value="">Select tenure</option>
-                        {[6, 12, 18, 24, 36, 48, 60, 72, 84, 96, 120].filter(months => months <= application.max_tenure_months).map(months => (
-                          <option key={months} value={months}>{months} months</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Monthly EMI</label>
-                      <div className="mt-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md">
-                        <span className="text-lg font-semibold text-blue-600">
-                          {formatCurrency(calculateMonthlyEMI(
-                            parseFloat(approvalForm.approved_amount) || 0,
-                            parseFloat(approvalForm.interest_rate) || 0,
-                            parseInt(approvalForm.tenure_months) || 0
-                          ))}
-                        </span>
+                  {/* Calculations */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-medium text-gray-900">Loan Calculations</h4>
+                    
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="text-sm text-blue-700">Monthly EMI</div>
+                      <div className="text-2xl font-bold text-blue-900">
+                        {formatCurrency(monthlyEMI)}
                       </div>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Banker Remarks</label>
-                      <textarea
-                        value={approvalForm.banker_remarks}
-                        onChange={(e) => setApprovalForm(prev => ({ ...prev, banker_remarks: e.target.value }))}
-                        rows={3}
-                        placeholder="Add any comments or observations..."
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Special Conditions (Optional)</label>
-                      <textarea
-                        value={approvalForm.conditions}
-                        onChange={(e) => setApprovalForm(prev => ({ ...prev, conditions: e.target.value }))}
-                        rows={2}
-                        placeholder="Any special terms or conditions..."
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Loan Analysis */}
-                  <div className="mt-4 p-4 bg-blue-50 rounded-md">
-                    <h5 className="text-sm font-medium text-blue-900 mb-2">Loan Analysis</h5>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-blue-700">Debt-to-Income Ratio:</span>
-                        <span className={`ml-2 font-semibold ${
-                          parseFloat(calculateDebtToIncomeRatio()) > 50 ? 'text-red-600' :
-                          parseFloat(calculateDebtToIncomeRatio()) > 40 ? 'text-yellow-600' :
-                          'text-green-600'
-                        }`}>
-                          {calculateDebtToIncomeRatio()}%
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-blue-700">Total Interest:</span>
-                        <span className="ml-2 font-semibold text-blue-900">
-                          {formatCurrency((calculateMonthlyEMI(
-                            parseFloat(approvalForm.approved_amount) || 0,
-                            parseFloat(approvalForm.interest_rate) || 0,
-                            parseInt(approvalForm.tenure_months) || 0
-                          ) * parseInt(approvalForm.tenure_months || 0)) - (parseFloat(approvalForm.approved_amount) || 0))}
-                        </span>
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <div className="text-sm text-green-700">Total Interest</div>
+                      <div className="text-xl font-bold text-green-900">
+                        {formatCurrency(totalInterest)}
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-6 flex space-x-4">
-                    <button
-                      onClick={handleApprove}
-                      disabled={processing}
-                      className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                    >
-                      {processing ? 'Processing...' : 'Confirm Approval'}
-                    </button>
-                    <button
-                      onClick={() => setShowApprovalForm(false)}
-                      className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Cancel
-                    </button>
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <div className="text-sm text-purple-700">Total Payable</div>
+                      <div className="text-xl font-bold text-purple-900">
+                        {formatCurrency(totalPayable)}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Rejection Form */}
-              {showRejectionForm && (
-                <div className="mt-6 border-t pt-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Rejection Details</h4>
+                {/* Additional Fields */}
+                <div className="mt-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Reason for Rejection *</label>
+                    <label className="block text-sm font-medium text-gray-700">Special Features</label>
                     <textarea
-                      value={rejectionForm.banker_remarks}
-                      onChange={(e) => setRejectionForm(prev => ({ ...prev, banker_remarks: e.target.value }))}
-                      rows={4}
-                      required
-                      placeholder="Please provide a detailed reason for rejecting this application..."
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      value={offerData.special_features}
+                      onChange={(e) => handleOfferChange('special_features', e.target.value)}
+                      rows={2}
+                      className="mt-1 block w-full text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Any special features or benefits..."
+                      disabled={my_offer?.status === 'selected'}
                     />
                   </div>
 
-                  <div className="mt-6 flex space-x-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Terms & Conditions</label>
+                    <textarea
+                      value={offerData.terms_conditions}
+                      onChange={(e) => handleOfferChange('terms_conditions', e.target.value)}
+                      rows={3}
+                      className="mt-1 block w-full text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Terms and conditions for this offer..."
+                      disabled={my_offer?.status === 'selected'}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Remarks</label>
+                    <textarea
+                      value={offerData.remarks}
+                      onChange={(e) => handleOfferChange('remarks', e.target.value)}
+                      rows={2}
+                      className="mt-1 block w-full text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Additional remarks or notes..."
+                      disabled={my_offer?.status === 'selected'}
+                    />
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                {my_offer?.status !== 'selected' && (
+                  <div className="mt-6 flex justify-end">
                     <button
-                      onClick={handleReject}
-                      disabled={processing}
-                      className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                      onClick={handleSubmitOffer}
+                      disabled={submittingOffer}
+                      className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {processing ? 'Processing...' : 'Confirm Rejection'}
-                    </button>
-                    <button
-                      onClick={() => setRejectionForm({ banker_remarks: '' })}
-                      className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Cancel
+                      {submittingOffer ? 'Submitting...' : my_offer ? 'Update Offer' : 'Submit Offer'}
                     </button>
                   </div>
+                )}
+
+                {my_offer?.status === 'selected' && (
+                  <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex">
+                      <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-green-800">🎉 Offer Selected!</h3>
+                        <p className="mt-1 text-sm text-green-700">
+                          Congratulations! Your offer has been selected by the operator. The loan is now approved with your terms.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Competition Tab */}
+          {activeTab === 'competition' && (
+            <div className="space-y-6">
+              {competing_offers.length > 0 ? (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold">Competing Offers ({competing_offers.length})</h2>
+                  
+                  {competing_offers.map(offer => (
+                    <div key={offer.id} className={`bg-white shadow rounded-lg border-2 ${
+                      offer.status === 'selected' ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                    }`}>
+                      <div className="p-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-4">
+                              <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <span className="text-orange-600 font-bold">🏦</span>
+                              </div>
+                              <div>
+                                <h3 className="text-xl font-semibold">{offer.bank_name}</h3>
+                                <p className="text-sm text-gray-600">Competitor Bank</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-4">
+                              <div className="bg-blue-50 rounded-lg p-4 text-center">
+                                <div className="text-sm text-blue-700">Amount</div>
+                                <div className="text-xl font-bold text-blue-900">
+                                  {formatCurrency(offer.offered_amount)}
+                                </div>
+                              </div>
+                              <div className="bg-green-50 rounded-lg p-4 text-center">
+                                <div className="text-sm text-green-700">Interest</div>
+                                <div className="text-xl font-bold text-green-900">
+                                  {offer.interest_rate}%
+                                </div>
+                              </div>
+                              <div className="bg-purple-50 rounded-lg p-4 text-center">
+                                <div className="text-sm text-purple-700">Tenure</div>
+                                <div className="text-xl font-bold text-purple-900">
+                                  {offer.tenure_months}m
+                                </div>
+                              </div>
+                              <div className="bg-orange-50 rounded-lg p-4 text-center">
+                                <div className="text-sm text-orange-700">EMI</div>
+                                <div className="text-xl font-bold text-orange-900">
+                                  {formatCurrency(offer.monthly_emi)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="ml-6">
+                            {offer.status === 'selected' ? (
+                              <span className="bg-green-100 text-green-800 px-4 py-2 rounded-md font-medium">
+                                ✅ Selected
+                              </span>
+                            ) : (
+                              <span className="bg-orange-100 text-orange-800 px-4 py-2 rounded-md font-medium">
+                                🏆 Competing
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-white shadow rounded-lg">
+                  <div className="w-24 h-24 mx-auto mb-4 text-gray-300 text-6xl">🏆</div>
+                  <h3 className="text-lg font-medium text-gray-900">No Competition</h3>
+                  <p className="text-gray-500 mt-1">
+                    You're the only bank that has been assigned this application so far.
+                  </p>
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {/* Already Decided */}
-        {(application.status === 'approved' || application.status === 'rejected') && (
-          <div className={`rounded-md p-4 ${
-            application.status === 'approved' 
-              ? 'bg-green-50 border border-green-200' 
-              : 'bg-red-50 border border-red-200'
-          }`}>
-            <div className="flex">
-              <div className="flex-shrink-0">
-                {application.status === 'approved' ? (
-                  <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ) : (
-                  <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </div>
-              <div className="ml-3">
-                <p className={`text-sm font-medium ${
-                  application.status === 'approved' 
-                    ? 'text-green-800' 
-                    : 'text-red-800'
-                }`}>
-                  Application has been {application.status}
-                  {application.approved_at && ` on ${formatDate(application.approved_at)}`}
-                </p>
-                {application.approved_amount && (
-                  <div className="mt-2 text-sm text-green-700">
-                    <p>Approved Amount: {formatCurrency(application.approved_amount)}</p>
-                    <p>Interest Rate: {application.approved_interest_rate}% per annum</p>
-                    <p>Tenure: {application.approved_tenure_months} months</p>
-                  </div>
-                )}
-                {application.banker_remarks && (
-                  <p className={`mt-1 text-sm ${
-                    application.status === 'approved' 
-                      ? 'text-green-700' 
-                      : 'text-red-700'
-                  }`}>
-                    Remarks: {application.banker_remarks}
-                  </p>
-                )}
-                {application.special_conditions && (
-                  <p className="mt-1 text-sm text-green-700">
-                    Special Conditions: {application.special_conditions}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </DashboardLayout>
   )

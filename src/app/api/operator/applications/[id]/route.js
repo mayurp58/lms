@@ -18,9 +18,9 @@ export async function GET(request, { params }) {
     const applicationQuery = `
       SELECT 
         la.id, la.application_number, la.requested_amount, la.approved_amount, 
-        la.disbursed_amount, la.status, la.created_at, la.updated_at,
-        la.approved_interest_rate, la.approved_tenure_months,
-        
+        la.disbursed_amount, la.status, la.marketplace_status, 
+        la.created_at, la.updated_at, la.approved_interest_rate, 
+        la.approved_tenure_months, la.special_instructions, la.selected_offer_id,
         
         -- Customer details
         c.id as customer_id,
@@ -46,9 +46,9 @@ export async function GET(request, { params }) {
       FROM loan_applications la
       JOIN customers c ON la.customer_id = c.id
       JOIN loan_categories lc ON la.loan_category_id = lc.id
-      JOIN connectors conn ON la.connector_id = conn.id
-      JOIN users cu ON conn.user_id = cu.id
-      JOIN user_profiles cup ON cu.id = cup.user_id
+      LEFT JOIN connectors conn ON la.connector_id = conn.id
+      LEFT JOIN users cu ON conn.user_id = cu.id
+      LEFT JOIN user_profiles cup ON cu.id = cup.user_id
       WHERE la.id = ?
     `
 
@@ -67,19 +67,52 @@ export async function GET(request, { params }) {
     const documentsQuery = `
       SELECT 
         cd.id, 
-        cd.document_type_id, 
+        dt.name as document_name, 
         cd.file_path, 
         cd.verification_status,
-        cd.verified_at,
+        cd.verified_at, 
+        cd.rejection_reason,
+        cd.uploaded_at,
         up.first_name as verified_by_name, 
         up.last_name as verified_by_last_name
       FROM customer_documents cd
+      LEFT JOIN document_types dt ON dt.id=cd.document_type_id
       LEFT JOIN users u ON cd.verified_by = u.id
       LEFT JOIN user_profiles up ON u.id = up.user_id
       WHERE cd.loan_application_id = ?
+      ORDER BY cd.uploaded_at DESC
     `
 
     const documents = await executeQuery(documentsQuery, [id])
+
+    // Get loan offers for this application
+    const offersQuery = `
+      SELECT 
+        lo.id,
+        lo.offered_amount,
+        lo.interest_rate,
+        lo.tenure_months,
+        lo.processing_fee,
+        lo.monthly_emi,
+        lo.status,
+        lo.valid_until,
+        lo.terms_conditions,
+        lo.remarks,
+        lo.created_at,
+        b.name as bank_name,
+        b.code as bank_code,
+        up.first_name as banker_first_name,
+        up.last_name as banker_last_name
+      FROM loan_offers lo
+      JOIN banks b ON lo.bank_id = b.id
+      JOIN users u ON lo.banker_user_id = u.id
+      JOIN user_profiles up ON u.id = up.user_id
+      WHERE lo.loan_application_id = ? 
+      AND lo.status IN ('active', 'selected')
+      ORDER BY lo.created_at DESC
+    `
+
+    const offers = await executeQuery(offersQuery, [id])
 
     // Get system logs for this application
     const logsQuery = `
@@ -101,14 +134,48 @@ export async function GET(request, { params }) {
 
     const logs = await executeQuery(logsQuery, [id])
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        application,
-        documents,
-        logs
-      }
-    })
+    // Add this query after getting the application details
+    const distributionsQuery = `
+    SELECT 
+      ad.id,
+      ad.status,
+      ad.sent_at,
+      ad.viewed_at,
+      ad.response_due_date,
+      ad.notes,
+      b.id as bank_id,
+      b.name as bank_name,
+      b.code as bank_code,
+      up.first_name as banker_name,
+      up.last_name as banker_last_name,
+      bk.designation as banker_designation
+    FROM application_distributions ad
+    JOIN banks b ON ad.bank_id = b.id
+    LEFT JOIN loan_offers lo ON ad.loan_application_id = lo.loan_application_id 
+      AND ad.bank_id = lo.bank_id 
+      AND lo.status = 'active'
+    LEFT JOIN bankers bk ON lo.banker_user_id = bk.user_id  -- Use existing bankers table
+    LEFT JOIN users u ON bk.user_id = u.id
+    LEFT JOIN user_profiles up ON u.id = up.user_id
+    WHERE ad.loan_application_id = ?
+    ORDER BY ad.sent_at DESC
+  `
+  
+
+const distributions = await executeQuery(distributionsQuery, [id])
+
+// Update the return statement to include distributions
+return NextResponse.json({
+success: true,
+data: {
+  application,
+  documents,
+  offers,
+  distributions, // Add this line
+  logs
+}
+})
+
 
   } catch (error) {
     console.error('Get operator application error:', error)

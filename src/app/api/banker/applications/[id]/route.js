@@ -3,9 +3,9 @@ import { executeQuery } from '@/lib/db/mysql'
 
 export async function GET(request, { params }) {
   try {
+    const { id } = await params
     const userId = request.headers.get('x-user-id')
     const userRole = request.headers.get('x-user-role')
-    const { id } = await params
 
     if (!userId || userRole !== 'banker') {
       return NextResponse.json(
@@ -14,75 +14,94 @@ export async function GET(request, { params }) {
       )
     }
 
-    // Get banker approval limit
-    const bankerResult = await executeQuery(
-      'SELECT max_approval_limit FROM bankers WHERE user_id = ?',
-      [userId]
-    )
-
-    if (bankerResult.length === 0) {
+    // Get banker's bank using existing bankers table
+    const bankerBankQuery = `
+      SELECT b.id as bank_id, b.name as bank_name, b.code as bank_code,
+             bk.employee_id, bk.designation, bk.max_approval_limit
+      FROM bankers bk
+      JOIN banks b ON bk.bank_id = b.id 
+      WHERE bk.user_id = ?
+    `
+    const bankerBank = await executeQuery(bankerBankQuery, [userId])
+    
+    if (bankerBank.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Banker not found' },
-        { status: 404 }
+        { success: false, message: 'Banker not associated with any bank' },
+        { status: 400 }
       )
     }
 
-    // Get application details
-    const applicationQuery = `
-      SELECT 
-        la.*,
-        c.first_name, c.last_name, c.phone, c.email, c.address,
-        c.city, c.state, c.pincode, c.aadhar_number, c.pan_number,
-        c.date_of_birth, c.gender, c.marital_status,
-        lc.name as loan_category_name, lc.min_amount, lc.max_amount,
-        lc.interest_rate_min, lc.interest_rate_max, lc.max_tenure_months,
-        conn.agent_code, conn.commission_percentage,
-        up.first_name as connector_first_name,
-        up.last_name as connector_last_name
-      FROM loan_applications la
+    // Check if this application was distributed to banker's bank
+    const distributionQuery = `
+      SELECT ad.*, la.*, c.*, lc.name as loan_category_name
+      FROM application_distributions ad
+      JOIN loan_applications la ON ad.loan_application_id = la.id
       JOIN customers c ON la.customer_id = c.id
       JOIN loan_categories lc ON la.loan_category_id = lc.id
-      JOIN connectors conn ON la.connector_id = conn.id
-      JOIN users u ON conn.user_id = u.id
-      JOIN user_profiles up ON u.id = up.user_id
-      WHERE la.id = ? AND la.requested_amount <= ?
+      WHERE ad.loan_application_id = ? AND ad.bank_id = ?
     `
-
-    const applications = await executeQuery(applicationQuery, [id, bankerResult[0].max_approval_limit])
-
-    if (applications.length === 0) {
+    
+    const distributionResult = await executeQuery(distributionQuery, [id, bankerBank[0].bank_id])
+    
+    if (distributionResult.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Application not found or exceeds approval limit' },
+        { success: false, message: 'Application not found or not assigned to your bank' },
         { status: 404 }
       )
     }
 
-    // Get documents for this application
-    const documentsQuery = `
-      SELECT 
-        cd.id, cd.file_name, cd.file_path, cd.verification_status, cd.operator_remarks,
-        dt.name as document_type_name, dt.is_required
-      FROM customer_documents cd
-      JOIN document_types dt ON cd.document_type_id = dt.id
-      WHERE cd.loan_application_id = ?
-      ORDER BY dt.is_required DESC, dt.name ASC
-    `
+    const application = distributionResult[0]
 
+    // Mark as viewed if not already
+    if (application.status === 'sent') {
+      await executeQuery(
+        'UPDATE application_distributions SET status = "viewed", viewed_at = NOW() WHERE loan_application_id = ? AND bank_id = ?',
+        [id, bankerBank[0].bank_id]
+      )
+    }
+
+    // Get documents
+    const documentsQuery = `
+      SELECT cd.id, dt.name as document_name, cd.file_path, cd.verification_status, cd.uploaded_at
+      FROM customer_documents cd
+      LEFT JOIN document_types dt ON dt.id=cd.document_type_id
+      WHERE cd.loan_application_id = ?
+      ORDER BY cd.uploaded_at DESC
+    `
     const documents = await executeQuery(documentsQuery, [id])
+
+    // Get banker's offer
+    const myOfferQuery = `
+      SELECT * FROM loan_offers 
+      WHERE loan_application_id = ? AND banker_user_id = ?
+      ORDER BY created_at DESC LIMIT 1
+    `
+    const myOfferResult = await executeQuery(myOfferQuery, [id, userId])
+    const my_offer = myOfferResult[0] || null
+
+    // Get competing offers (excluding banker's own offer)
+    const competingOffersQuery = `
+      SELECT lo.*, b.name as bank_name, b.code as bank_code
+      FROM loan_offers lo
+      JOIN banks b ON lo.bank_id = b.id
+      WHERE lo.loan_application_id = ? AND lo.banker_user_id != ? AND lo.status = 'active'
+      ORDER BY lo.created_at DESC
+    `
+    const competing_offers = await executeQuery(competingOffersQuery, [id, userId])
 
     return NextResponse.json({
       success: true,
       data: {
-        application: applications[0],
+        application,
         documents,
-        bankerInfo: {
-          maxApprovalLimit: bankerResult[0].max_approval_limit
-        }
+        my_offer,
+        competing_offers,
+        banker_info: bankerBank[0]
       }
     })
 
   } catch (error) {
-    console.error('Get application for banker error:', error)
+    console.error('Get banker application error:', error)
     return NextResponse.json(
       { success: false, message: 'Failed to fetch application: ' + error.message },
       { status: 500 }

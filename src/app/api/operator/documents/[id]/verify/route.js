@@ -3,9 +3,9 @@ import { executeQuery } from '@/lib/db/mysql'
 
 export async function PUT(request, { params }) {
   try {
+    const { id } = await params
     const userId = request.headers.get('x-user-id')
     const userRole = request.headers.get('x-user-role')
-    const { id } = await params
 
     if (!userId || userRole !== 'operator') {
       return NextResponse.json(
@@ -14,94 +14,72 @@ export async function PUT(request, { params }) {
       )
     }
 
-    const body = await request.json()
-    const { status, remarks } = body
+    const { verification_status, rejection_reason } = await request.json()
 
-    if (!['verified', 'rejected'].includes(status)) {
+    if (!verification_status) {
       return NextResponse.json(
-        { success: false, message: 'Invalid verification status' },
+        { success: false, message: 'Verification status is required' },
         { status: 400 }
       )
     }
 
-    // Get document details before update
-    const documentResult = await executeQuery(
-      `SELECT cd.*, la.application_number, la.status as app_status, c.first_name, c.last_name
-       FROM customer_documents cd
-       JOIN loan_applications la ON cd.loan_application_id = la.id
-       JOIN customers c ON la.customer_id = c.id
-       WHERE cd.id = ?`,
-      [id]
-    )
+    // Update document verification status
+    const updateQuery = `
+      UPDATE customer_documents 
+      SET 
+        verification_status = ?, 
+        verified_by = ?,
+        verified_at = NOW(),
+        rejection_reason = ?
+      WHERE id = ?
+    `
 
-    if (documentResult.length === 0) {
+    const result = await executeQuery(updateQuery, [
+      verification_status, 
+      userId,
+      verification_status === 'rejected' ? rejection_reason : null,
+      id
+    ])
+
+    if (result.affectedRows === 0) {
       return NextResponse.json(
         { success: false, message: 'Document not found' },
         { status: 404 }
       )
     }
 
-    const document = documentResult[0]
+    // Log the activity
+    const logQuery = `
+      INSERT INTO system_logs (
+        user_id, action, entity_type, entity_id, 
+        new_values, ip_address, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+    `
 
-    // Update document verification status
-    await executeQuery(
-      `UPDATE customer_documents 
-       SET verification_status = ?, operator_remarks = ?, verified_at = NOW(), verified_by = ?
-       WHERE id = ?`,
-      [status, remarks || null, userId, id]
-    )
+    const logData = JSON.stringify({
+      verification_status,
+      rejection_reason: rejection_reason || null,
+      document_id: id
+    })
 
-    // Set application status to under_verification if it's still submitted
-    if (document.app_status === 'submitted') {
-      await executeQuery(
-        `UPDATE loan_applications SET status = 'under_verification' WHERE id = ?`,
-        [document.loan_application_id]
-      )
-    }
-
-    // Trigger workflow if document is verified
-    if (status === 'verified') {
-      try {
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/system/workflow`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            trigger: 'document_verified',
-            entity_id: id,
-            entity_type: 'document'
-          })
-        })
-      } catch (workflowError) {
-        console.error('⚠️ Workflow trigger failed:', workflowError)
-        // Don't fail the main operation if workflow fails
-      }
-    }
-
-    // Log activity
-    await executeQuery(
-      'INSERT INTO system_logs (user_id, action, entity_type, entity_id, old_values, new_values, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [
-        userId,
-        'DOCUMENT_VERIFIED',
-        'document',
-        id,
-        JSON.stringify({ old_status: document.verification_status }),
-        JSON.stringify({ new_status: status, remarks }),
-        request.headers.get('x-forwarded-for') || 'unknown'
-      ]
-    )
+    await executeQuery(logQuery, [
+      userId,
+      'DOCUMENT_VERIFIED',
+      'customer_document',
+      id,
+      logData,
+      request.headers.get('x-forwarded-for') || 'unknown'
+    ])
 
     return NextResponse.json({
       success: true,
-      message: `Document ${status} successfully`
+      message: 'Document verification updated successfully'
     })
 
   } catch (error) {
-    console.error('❌ Verify document error:', error)
+    console.error('Document verification error:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to update document: ' + error.message },
+      { success: false, message: 'Failed to update document verification: ' + error.message },
       { status: 500 }
     )
   }

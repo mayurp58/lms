@@ -16,7 +16,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page')) || 1
     const limit = parseInt(searchParams.get('limit')) || 20
-    const status = searchParams.get('status') || 'submitted'
+    const status = searchParams.get('status') || 'all'
     const priority = searchParams.get('priority')
 
     // Build WHERE conditions
@@ -76,7 +76,7 @@ export async function GET(request) {
       LIMIT ${limit} OFFSET ${offset}
     `
 
-    //console.log('Operator Applications Query:', applicationsQuery)
+    console.log('Operator Applications Query:', applicationsQuery)
     //console.log('Query Params:', queryParams)
 
     const applications = await executeQuery(applicationsQuery, queryParams)

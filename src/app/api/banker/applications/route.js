@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/db/mysql'
 
-// GET - Fetch applications for banker review
 export async function GET(request) {
   try {
     const userId = request.headers.get('x-user-id')
@@ -15,100 +14,119 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url)
+    const filter = searchParams.get('filter') || 'all'
     const page = parseInt(searchParams.get('page')) || 1
-    const limit = parseInt(searchParams.get('limit')) || 10
-    const status = searchParams.get('status') || 'verified'
-    const search = searchParams.get('search')
+    const limit = parseInt(searchParams.get('limit')) || 20
 
-    const offset = (page - 1) * limit
-
-    // Get banker info to check approval limits
-    const bankerResult = await executeQuery(
-      'SELECT max_approval_limit FROM bankers WHERE user_id = ?',
-      [userId]
-    )
-
-    if (bankerResult.length === 0) {
+    // Get banker's bank information using existing bankers table
+    const bankerBankQuery = `
+      SELECT b.id as bank_id, b.name as bank_name, b.code as bank_code,
+             bk.employee_id, bk.designation, bk.department, bk.max_approval_limit
+      FROM bankers bk
+      JOIN banks b ON bk.bank_id = b.id 
+      WHERE bk.user_id = ?
+    `
+    const bankerBank = await executeQuery(bankerBankQuery, [userId])
+    
+    if (bankerBank.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Banker not found' },
-        { status: 404 }
+        { success: false, message: 'Banker not associated with any bank' },
+        { status: 400 }
       )
     }
 
-    const maxApprovalLimit = bankerResult[0].max_approval_limit
+    const bankInfo = bankerBank[0]
 
-    let whereConditions = ['la.status = ?']
-    let queryParams = [status]
+    // Get applications distributed to this bank
+    let whereCondition = 'WHERE ad.bank_id = ?'
+    let queryParams = [bankInfo.bank_id]
 
-    // Only show applications within banker's approval limit
-    if (maxApprovalLimit > 0) {
-      whereConditions.push('la.requested_amount <= ?')
-      queryParams.push(maxApprovalLimit)
+    // Apply filters
+    if (filter === 'pending') {
+      whereCondition += ' AND ad.status = "sent"'
+    } else if (filter === 'reviewed') {
+      whereCondition += ' AND ad.status = "viewed"'
+    } else if (filter === 'offers_made') {
+      whereCondition += ' AND lo.id IS NOT NULL'
     }
 
-    if (search && search.trim() !== '') {
-      whereConditions.push('(la.application_number LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ?)')
-      queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`)
-    }
-
-    const whereClause = 'WHERE ' + whereConditions.join(' AND ')
-
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as total 
-      FROM loan_applications la
-      JOIN customers c ON la.customer_id = c.id
-      ${whereClause}
-    `
-    
-    const countResult = await executeQuery(countQuery, queryParams)
-    const total = countResult[0].total
-
-    // Get applications with pagination
     const applicationsQuery = `
       SELECT 
-        la.id, la.application_number, la.requested_amount, la.purpose,
-        la.monthly_income, la.employment_type, la.company_name, la.work_experience_years,
-        la.existing_loans_amount, la.status, la.cibil_score, la.created_at,
-        c.id as customer_id, c.first_name, c.last_name, c.phone, c.email,
-        c.date_of_birth, c.gender, c.marital_status, c.address, c.city, c.state, c.pincode,
-        lc.name as loan_category_name, lc.interest_rate_min, lc.interest_rate_max, lc.max_tenure_months,
-        conn.agent_code,
-        up.first_name as connector_first_name, up.last_name as connector_last_name,
-        -- Count verified documents
-        (SELECT COUNT(*) FROM customer_documents cd WHERE cd.loan_application_id = la.id AND cd.verification_status = 'verified') as verified_documents,
-        (SELECT COUNT(*) FROM customer_documents cd JOIN document_types dt ON cd.document_type_id = dt.id WHERE cd.loan_application_id = la.id AND dt.is_required = 1) as required_documents
-      FROM loan_applications la
+        la.id,
+        la.application_number,
+        la.requested_amount,
+        la.status,
+        la.marketplace_status,
+        la.created_at,
+        
+        -- Customer details
+        c.first_name as customer_first_name,
+        c.last_name as customer_last_name,
+        c.phone as customer_phone,
+        c.email as customer_email,
+        
+        -- Loan category
+        lc.name as loan_category_name,
+        
+        -- Distribution info
+        ad.status as distribution_status,
+        ad.sent_at,
+        ad.viewed_at,
+        ad.response_due_date,
+        
+        -- My offer info
+        lo.id as my_offer_id,
+        lo.offered_amount as my_offer_amount,
+        lo.interest_rate as my_offer_rate,
+        lo.tenure_months as my_offer_tenure,
+        lo.status as my_offer_status,
+        
+        -- Competition info
+        (SELECT COUNT(*) FROM loan_offers lo2 WHERE lo2.loan_application_id = la.id AND lo2.status = 'active') as total_offers
+        
+      FROM application_distributions ad
+      JOIN loan_applications la ON ad.loan_application_id = la.id
       JOIN customers c ON la.customer_id = c.id
       JOIN loan_categories lc ON la.loan_category_id = lc.id
-      JOIN connectors conn ON la.connector_id = conn.id
-      JOIN users u ON conn.user_id = u.id
-      JOIN user_profiles up ON u.id = up.user_id
-      ${whereClause}
-      ORDER BY la.created_at ASC
-      LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
+      LEFT JOIN loan_offers lo ON la.id = lo.loan_application_id AND lo.banker_user_id = ?
+      ${whereCondition}
+      ORDER BY ad.sent_at DESC
+      LIMIT ${limit} OFFSET ${(page - 1) * limit}
     `
 
-    const applications = await executeQuery(applicationsQuery, queryParams)
+    const applications = await executeQuery(applicationsQuery, [userId, ...queryParams])
+
+    // Get statistics
+    const statsQuery = `
+      SELECT 
+        COUNT(CASE WHEN ad.status = 'sent' THEN 1 END) as pending_review,
+        COUNT(CASE WHEN ad.status = 'viewed' THEN 1 END) as applications_reviewed,
+        COUNT(CASE WHEN lo.id IS NOT NULL THEN 1 END) as offers_submitted,
+        COUNT(CASE WHEN lo.status = 'selected' THEN 1 END) as offers_selected
+      FROM application_distributions ad
+      LEFT JOIN loan_offers lo ON ad.loan_application_id = lo.loan_application_id AND lo.banker_user_id = ?
+      WHERE ad.bank_id = ?
+    `
+
+    const statsResult = await executeQuery(statsQuery, [userId, bankInfo.bank_id])
+    const stats = statsResult[0] || {}
 
     return NextResponse.json({
       success: true,
       data: {
         applications,
-        bankerInfo: {
-          maxApprovalLimit
-        },
+        stats,
+        banker_info: bankInfo,
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit)
+          total: applications.length
         }
       }
     })
 
   } catch (error) {
-    console.error('Get applications for banker error:', error)
+    console.error('Banker applications error:', error)
     return NextResponse.json(
       { success: false, message: 'Failed to fetch applications: ' + error.message },
       { status: 500 }

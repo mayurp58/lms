@@ -83,7 +83,6 @@ export default function DashboardLayout({ children, requiredRole }) {
       items.push(
         { name: 'Dashboard', href: '/operator', icon: '📊' },
         { name: 'Applications', href: '/operator/applications', icon: '📋' },
-        { name: 'Documents', href: '/operator/documents', icon: '📄' },
         { name: 'Customers', href: '/operator/customers', icon: '👤' },
         { name: 'My Profile', href: '/profile', icon: '⚙️' },
       )

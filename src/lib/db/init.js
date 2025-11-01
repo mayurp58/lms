@@ -113,6 +113,8 @@ const createTables = async () => {
       special_conditions text,
       approved_by int DEFAULT NULL,
       approved_at timestamp NULL DEFAULT NULL,
+      selected_offer_id INT NULL,
+      marketplace_status ENUM('not_distributed', 'distributed', 'offers_received', 'offer_selected', 'finalized') DEFAULT 'not_distributed',
       purpose TEXT NOT NULL,
       monthly_income DECIMAL(12,2) NOT NULL,
       employment_type ENUM('salaried', 'self_employed', 'business', 'other') NOT NULL,
@@ -166,19 +168,19 @@ const createTables = async () => {
   )`,
 
     // Banks table
-    `CREATE TABLE IF NOT EXISTS banks (
+    `CREATE TABLE banks (
       id INT PRIMARY KEY AUTO_INCREMENT,
-      name VARCHAR(200) NOT NULL,
+      name VARCHAR(100) NOT NULL,
       code VARCHAR(20) UNIQUE NOT NULL,
-      contact_email VARCHAR(255),
-      contact_phone VARCHAR(20),
-      address TEXT,
-      status ENUM('active', 'inactive') DEFAULT 'active',
+      description TEXT,
+      logo_url VARCHAR(255),
+      contact_email VARCHAR(100),
+      contact_phone VARCHAR(15),
+      website VARCHAR(100),
+      is_active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_code (code),
-      INDEX idx_status (status)
-    )`,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`,
 
     // Bankers table
     `CREATE TABLE IF NOT EXISTS bankers (
@@ -196,25 +198,58 @@ const createTables = async () => {
       INDEX idx_bank_id (bank_id)
     )`,
 
+    //application distributions
+    `CREATE TABLE application_distributions (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        loan_application_id INT NOT NULL,
+        bank_id INT NOT NULL,
+        operator_user_id INT NOT NULL,
+        
+        status ENUM('sent', 'viewed', 'offer_received', 'declined') DEFAULT 'sent',
+        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        viewed_at TIMESTAMP NULL,
+        response_due_date DATETIME NOT NULL,
+        
+        notes TEXT
+    )`
     // Loan offers table
-    `CREATE TABLE IF NOT EXISTS loan_offers (
-      id INT PRIMARY KEY AUTO_INCREMENT,
-      loan_application_id INT NOT NULL,
-      banker_id INT NOT NULL,
-      offered_amount DECIMAL(15,2) NOT NULL,
-      interest_rate DECIMAL(5,2) NOT NULL,
-      tenure_months INT NOT NULL,
-      processing_fee DECIMAL(10,2) DEFAULT 0.00,
-      monthly_emi DECIMAL(12,2) NOT NULL,
-      terms_conditions TEXT,
-      status ENUM('pending', 'accepted', 'rejected', 'expired') DEFAULT 'pending',
-      valid_until DATE,
-      banker_remarks TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_loan_application (loan_application_id),
-      INDEX idx_status (status),
-      INDEX idx_banker_id (banker_id)
+    `CREATE TABLE loan_offers (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        loan_application_id INT NOT NULL,
+        bank_id INT NOT NULL,
+        banker_user_id INT NOT NULL,
+        
+        -- Offer details
+        offered_amount DECIMAL(12,2) NOT NULL,
+        interest_rate DECIMAL(5,2) NOT NULL,
+        tenure_months INT NOT NULL,
+        processing_fee DECIMAL(10,2) DEFAULT 0,
+        
+        -- Additional terms (calculated fields)
+        monthly_emi DECIMAL(10,2) GENERATED ALWAYS AS (
+            (offered_amount * (interest_rate / 1200)) / 
+            (1 - POW(1 + (interest_rate / 1200), -tenure_months))
+        ) VIRTUAL,
+        
+        total_interest DECIMAL(12,2) GENERATED ALWAYS AS (
+            (monthly_emi * tenure_months) - offered_amount
+        ) VIRTUAL,
+        
+        total_payable DECIMAL(12,2) GENERATED ALWAYS AS (
+            monthly_emi * tenure_months
+        ) VIRTUAL,
+        
+        -- Offer status
+        status ENUM('pending', 'active', 'selected', 'rejected', 'expired') DEFAULT 'active',
+        valid_until DATETIME NOT NULL,
+        
+        -- Additional info
+        terms_conditions TEXT,
+        special_features TEXT,
+        remarks TEXT,
+        
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )`,
 
     // Loan disbursements table
@@ -346,16 +381,16 @@ const insertInitialData = async () => {
 
   // Insert sample banks
   const banks = [
-    ['State Bank of India', 'SBI', 'sbi@bank.com', '1800-123-456'],
-    ['HDFC Bank', 'HDFC', 'hdfc@bank.com', '1800-123-457'],
-    ['ICICI Bank', 'ICICI', 'icici@bank.com', '1800-123-458'],
-    ['Axis Bank', 'AXIS', 'axis@bank.com', '1800-123-459'],
-    ['Kotak Mahindra Bank', 'KOTAK', 'kotak@bank.com', '1800-123-460']
+    ['State Bank of India', 'SBI', 'India\'s largest public sector bank', 'sbi@bank.com', '1800-123-456'],
+    ['HDFC Bank', 'HDFC', 'Leading private sector bank', 'hdfc@bank.com', '1800-123-457'],
+    ['ICICI Bank', 'ICICI', 'Premium private bank', 'icici@bank.com', '1800-123-458'],
+    ['Axis Bank', 'AXIS', 'Modern banking solutions', 'axis@bank.com', '1800-123-459'],
+    ['Kotak Mahindra Bank', 'KOTAK', 'Innovative banking', 'kotak@bank.com', '1800-123-460']
   ]
 
   for (const bank of banks) {
     await executeQuery(
-      'INSERT IGNORE INTO banks (name, code, contact_email, contact_phone) VALUES (?, ?, ?, ?)',
+      'INSERT IGNORE INTO banks (name, code, description, contact_email, contact_phone) VALUES (?, ?, ?, ?, ?)',
       bank
     )
   }

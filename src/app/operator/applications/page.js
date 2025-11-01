@@ -10,7 +10,7 @@ export default function OperatorApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({})
   const [filters, setFilters] = useState({
-    status: 'submitted',
+    status: 'all',
     priority: 'all',
     page: 1,
     limit: 20
@@ -167,11 +167,12 @@ export default function OperatorApplicationsPage() {
                 onChange={(e) => handleFilterChange('status', e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               >
+                <option value="all">All Status</option>
                 <option value="submitted">Pending Review</option>
                 <option value="under_verification">Under Verification</option>
                 <option value="verified">Verified</option>
                 <option value="rejected">Rejected</option>
-                <option value="all">All Status</option>
+                <option value="disbursed">Disbursed</option>
               </select>
             </div>
 
