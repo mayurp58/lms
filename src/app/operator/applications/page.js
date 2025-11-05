@@ -173,6 +173,8 @@ export default function OperatorApplicationsPage() {
                 <option value="verified">Verified</option>
                 <option value="rejected">Rejected</option>
                 <option value="disbursed">Disbursed</option>
+                <option value="document_rejected">Document Rejected</option>
+                
               </select>
             </div>
 

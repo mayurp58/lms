@@ -140,6 +140,21 @@ export function validateLoanApplicationData(data) {
     errors.purpose = 'Purpose of loan is required'
   }
 
+  if (!data.vehicle_reg_number?.trim()) {
+    errors.vehicle_reg_number = 'Vehicle registration number is required'
+  }
+
+  if (!data.vehicle_valuation?.trim()) {
+    errors.vehicle_valuation = 'Vehicle valuation is required'
+  }
+
+  if (!data.vehicle_km?.trim()) {
+    errors.vehicle_km = 'Kilometers driven is required'
+  }
+  if (!data.vehicle_owner?.trim()) {
+    errors.vehicle_owner = 'Owner serial number is required'
+  }
+
   if (!data.monthly_income || data.monthly_income <= 0) {
     errors.monthly_income = 'Valid monthly income is required'
   }

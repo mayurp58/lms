@@ -8,6 +8,10 @@ export default function LoanApplicationForm({ customer, onSubmit, onCancel }) {
     customer_id: customer?.id || '',
     loan_category_id: '',
     requested_amount: '',
+    vehicle_reg_number : '',
+    vehicle_valuation : '',
+    vehicle_km : '',
+    vehicle_owner : '',
     purpose: '',
     monthly_income: '',
     employment_type: '',
@@ -63,7 +67,7 @@ export default function LoanApplicationForm({ customer, onSubmit, onCancel }) {
   }
 
   const selectedCategory = loanCategories.find(cat => cat.id.toString() === formData.loan_category_id)
-
+  
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {errors.general && (
@@ -119,14 +123,10 @@ export default function LoanApplicationForm({ customer, onSubmit, onCancel }) {
             </select>
             {errors.loan_category_id && <p className="mt-1 text-sm text-red-600">{errors.loan_category_id}</p>}
             
-            {selectedCategory && (
-              <div className="mt-2 text-xs text-gray-600">
-                <p>Amount: ₹{selectedCategory.min_amount.toLocaleString()} - ₹{selectedCategory.max_amount.toLocaleString()}</p>
-                <p>Interest: {selectedCategory.interest_rate_min}% - {selectedCategory.interest_rate_max}%</p>
-                <p>Max Tenure: {selectedCategory.max_tenure_months} months</p>
-              </div>
-            )}
+            
           </div>
+
+          
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Requested Amount (₹) *</label>
@@ -143,7 +143,65 @@ export default function LoanApplicationForm({ customer, onSubmit, onCancel }) {
             />
             {errors.requested_amount && <p className="mt-1 text-sm text-red-600">{errors.requested_amount}</p>}
           </div>
-
+          {
+            selectedCategory && selectedCategory.name=="Used Auto Loan" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Registration Number *</label>
+                  <input
+                    type="text"
+                    name="vehicle_reg_number"
+                    value={formData.vehicle_reg_number}
+                    onChange={handleChange}
+                    required
+                    placeholder="MH12TS0123"
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.vehicle_reg_number ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900`}
+                  />
+                  {errors.vehicle_reg_number && <p className="mt-1 text-sm text-red-600">{errors.vehicle_reg_number}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Kms Driven *</label>
+                  <input
+                    type="number"
+                    name="vehicle_km"
+                    value={formData.vehicle_km}
+                    onChange={handleChange}
+                    required
+                    placeholder="60000"
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.vehicle_km ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900`}
+                  />
+                  {errors.vehicle_km && <p className="mt-1 text-sm text-red-600">{errors.vehicle_km}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Vehicle Valuation *</label>
+                  <input
+                    type="number"
+                    name="vehicle_valuation"
+                    value={formData.vehicle_valuation}
+                    onChange={handleChange}
+                    required
+                    placeholder="400000"
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.vehicle_valuation ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900`}
+                  />
+                  {errors.vehicle_valuation && <p className="mt-1 text-sm text-red-600">{errors.vehicle_valuation}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Vehicle Owner Serial Number *</label>
+                  <input
+                    type="number"
+                    name="vehicle_owner"
+                    value={formData.vehicle_owner}
+                    onChange={handleChange}
+                    required
+                    min={2}
+                    placeholder="2"
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.vehicle_owner ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900`}
+                  />
+                  {errors.vehicle_owner && <p className="mt-1 text-sm text-red-600">{errors.vehicle_owner}</p>}
+                </div>
+              </>
+            )
+          }
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700">Purpose of Loan *</label>
             <textarea

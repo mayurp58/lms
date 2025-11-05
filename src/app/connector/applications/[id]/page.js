@@ -206,7 +206,7 @@ export default function ViewApplicationPage({ params }) {
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
             Application Documents
           </h3>
-          <DocumentsList loanApplicationId={application.id} />
+          <DocumentsList customerId={application.customer_id} loanApplicationId={application.id} />
         </div>
 
         {/* Action Buttons */}

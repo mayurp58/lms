@@ -28,8 +28,8 @@ export async function GET(request) {
     let query = `
       SELECT 
         cd.id, cd.file_name, cd.file_path, cd.file_size_kb,
-        cd.verification_status, cd.operator_remarks, cd.uploaded_at, cd.verified_at,
-        dt.name as document_type_name, dt.description as document_type_description,
+        cd.verification_status,cd.rejection_reason, cd.operator_remarks, cd.uploaded_at, cd.verified_at,
+        cd.document_type_id, dt.name as document_type_name, dt.description as document_type_description,
         dt.is_required, la.application_number, c.first_name, c.last_name
       FROM customer_documents cd
       JOIN document_types dt ON cd.document_type_id = dt.id

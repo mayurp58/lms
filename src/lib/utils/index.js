@@ -126,6 +126,7 @@ export function getStatusColor(status) {
     under_verification: 'bg-yellow-100 text-yellow-800',
     verified: 'bg-indigo-100 text-indigo-800',
     approved: 'bg-green-100 text-green-800',
+    document_rejected: 'bg-red-100 text-red-800',
     rejected: 'bg-red-100 text-red-800',
     disbursed: 'bg-purple-100 text-purple-800',
     pending: 'bg-yellow-100 text-yellow-800',

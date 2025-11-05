@@ -14,7 +14,7 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const filter = searchParams.get('filter') || 'all'
+    const filter = searchParams.get('status') || 'all'
     const page = parseInt(searchParams.get('page')) || 1
     const limit = parseInt(searchParams.get('limit')) || 20
 
@@ -43,12 +43,18 @@ export async function GET(request) {
 
     // Apply filters
     if (filter === 'pending') {
-      whereCondition += ' AND ad.status = "sent"'
-    } else if (filter === 'reviewed') {
-      whereCondition += ' AND ad.status = "viewed"'
-    } else if (filter === 'offers_made') {
-      whereCondition += ' AND lo.id IS NOT NULL'
+      whereCondition += ' AND la.status = "submitted"'
+    } else if (filter === 'approved') {
+      whereCondition += ' AND la.status = "approved"'
+    } else if (filter === 'disbursed') {
+      whereCondition += ' AND la.status = "disbursed"'
     }
+    else
+    {
+      whereCondition += ` AND la.status = "${filter}"`
+    }
+
+    console.log(whereCondition)
 
     const applicationsQuery = `
       SELECT 
@@ -58,6 +64,12 @@ export async function GET(request) {
         la.status,
         la.marketplace_status,
         la.created_at,
+        la.monthly_income,
+        la.employment_type,
+        la.company_name,
+        la.work_experience_years,
+        la.existing_loans_amount,
+
         
         -- Customer details
         c.first_name as customer_first_name,
@@ -93,7 +105,8 @@ export async function GET(request) {
       ORDER BY ad.sent_at DESC
       LIMIT ${limit} OFFSET ${(page - 1) * limit}
     `
-
+    console.log(applicationsQuery)
+    console.log(userId, ...queryParams)
     const applications = await executeQuery(applicationsQuery, [userId, ...queryParams])
 
     // Get statistics

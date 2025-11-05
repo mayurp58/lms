@@ -4,7 +4,7 @@ import { hashPassword } from '@/lib/auth/jwt'
 import { validateUserData } from '@/lib/validations'
 import { generateAgentCode } from '@/lib/utils'
 
-// GET - Fetch all users with pagination and filters
+// GET - Fetch all users with pagination and filters 
 export async function GET(request) {
   try {
     //console.log('📊 Users API called')
@@ -76,7 +76,7 @@ export async function GET(request) {
         u.id, u.email, u.role, u.status, u.created_at,
         up.first_name, up.last_name, up.phone, up.city, up.state,
         c.agent_code, c.total_cases_submitted, c.commission_percentage,
-        b.employee_id, b.designation, bank.name as bank_name
+        b.employee_id, b.designation, bank.name as bank_name, b.branch, b.branch_code
       FROM users u
       LEFT JOIN user_profiles up ON u.id = up.user_id
       LEFT JOIN connectors c ON u.id = c.user_id
@@ -145,6 +145,8 @@ export async function POST(request) {
       commission_percentage,
       // Banker specific
       bank_id,
+      branch,
+      branch_code,
       employee_id,
       designation,
       department,
@@ -195,9 +197,9 @@ export async function POST(request) {
 
     if (role === 'banker' && bank_id) {
       queries.push({
-        query: `INSERT INTO bankers (user_id, bank_id, employee_id, designation, department, max_approval_limit) 
-                VALUES (LAST_INSERT_ID(), ?, ?, ?, ?, ?)`,
-        params: [bank_id, employee_id || null, designation || null, department || null, max_approval_limit || null]
+        query: `INSERT INTO bankers (user_id, bank_id, branch, branch_code, city, state, pincode, employee_id, designation, department, max_approval_limit) 
+                VALUES (LAST_INSERT_ID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        params: [bank_id, branch, branch_code, city, state, pincode, employee_id || null, designation || null, department || null, max_approval_limit || null]
       })
     }
 

@@ -11,6 +11,8 @@ export default function UserForm({ user = null, onSubmit, onCancel, banks = [] }
     role: 'connector',
     phone: '',
     address: '',
+    branch:'',
+    branch_code:'',
     city: '',
     state: '',
     pincode: '',
@@ -39,6 +41,8 @@ export default function UserForm({ user = null, onSubmit, onCancel, banks = [] }
         role: user.role || 'connector',
         phone: user.phone || '',
         address: user.address || '',
+        branch:user.branch || '',
+        branch_code: user.branch_code || '',
         city: user.city || '',
         state: user.state || '',
         pincode: user.pincode || '',
@@ -209,11 +213,12 @@ export default function UserForm({ user = null, onSubmit, onCancel, banks = [] }
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700">City</label>
+            <label className="block text-sm font-medium text-gray-700">City *</label>
             <input
               type="text"
               name="city"
               value={formData.city}
+              required
               onChange={handleChange}
               placeholder='City'
               className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${errors.city ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
@@ -222,11 +227,12 @@ export default function UserForm({ user = null, onSubmit, onCancel, banks = [] }
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">State</label>
+            <label className="block text-sm font-medium text-gray-700">State *</label>
             <input
               type="text"
               name="state"
               value={formData.state}
+              required
               onChange={handleChange}
               placeholder='State'
               className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${errors.state ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
@@ -235,12 +241,13 @@ export default function UserForm({ user = null, onSubmit, onCancel, banks = [] }
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Pincode</label>
+            <label className="block text-sm font-medium text-gray-700">Pincode *</label>
             <input
               type="text"
               name="pincode"
               value={formData.pincode}
               onChange={handleChange}
+              required
               placeholder='Pincode'
               className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${errors.pincode ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
             />
@@ -326,7 +333,33 @@ export default function UserForm({ user = null, onSubmit, onCancel, banks = [] }
               </select>
               {errors.bank_id && <p className="mt-1 text-sm text-red-600">{errors.bank_id}</p>}
             </div>
-
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Branch *</label>
+              <input
+                type="text"
+                name="branch"
+                value={formData.branch}
+                required
+                onChange={handleChange}
+                placeholder='Branch'
+                className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${errors.branch ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+              />
+              {errors.branch && <p className="mt-1 text-sm text-red-600">{errors.branch}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Branch Code *</label>
+              <input
+                type="text"
+                name="branch_code"
+                value={formData.branch_code}
+                required
+                onChange={handleChange}
+                placeholder='Branch Code'
+                className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${errors.branch_code ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+              />
+              {errors.branch_code && <p className="mt-1 text-sm text-red-600">{errors.branch_code}</p>}
+            </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700">Employee ID</label>
               <input

@@ -276,7 +276,7 @@ export default function OperatorApplicationPage({ params }) {
 
             {/* Quick Actions */}
             <div className="flex space-x-2">
-              {application.status === 'submitted' && (
+              {/* {application.status === 'submitted' && (
                 <button
                   onClick={() => handleStatusUpdate('under_verification')}
                   disabled={updating}
@@ -284,7 +284,7 @@ export default function OperatorApplicationPage({ params }) {
                 >
                   {updating ? 'Updating...' : 'Start Review'}
                 </button>
-              )}
+              )} */}
               
               {application.status === 'under_verification' && canMarkAsVerified() && (
                 <button
@@ -486,7 +486,7 @@ export default function OperatorApplicationPage({ params }) {
                                     setDocumentRemarks(e.target.value)
                                   }}
                                   rows={3}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                  className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-md text-sm"
                                   placeholder="Add remarks (required for rejection)..."
                                 />
                                 

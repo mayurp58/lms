@@ -171,6 +171,10 @@ export async function POST(request) {
       customer_id,
       loan_category_id,
       requested_amount,
+      vehicle_reg_number,
+      vehicle_valuation,
+      vehicle_km,
+      vehicle_owner,
       purpose,
       monthly_income,
       employment_type,
@@ -185,16 +189,21 @@ export async function POST(request) {
     // Insert loan application
     const result = await executeQuery(
       `INSERT INTO loan_applications 
-       (application_number, customer_id, connector_id, loan_category_id, requested_amount, 
+       (application_number, customer_id, connector_id, loan_category_id, requested_amount,
+        vehicle_reg_number, vehicle_valuation, vehicle_km, vehicle_owner,
         purpose, monthly_income, employment_type, company_name, work_experience_years, 
         existing_loans_amount, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         applicationNumber,
         customer_id,
         connectorId,
         loan_category_id,
         requested_amount,
+        vehicle_reg_number, 
+        vehicle_valuation, 
+        vehicle_km, 
+        vehicle_owner,
         purpose,
         monthly_income,
         employment_type,

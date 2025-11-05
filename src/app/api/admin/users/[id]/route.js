@@ -12,11 +12,12 @@ export async function GET(request, { params }) {
         u.id, u.email, u.role, u.status, u.created_at,
         up.first_name, up.last_name, up.phone, up.address, up.city, up.state, up.pincode,
         c.agent_code, c.city as connector_city, c.area as connector_area, c.commission_percentage,
-        b.bank_id, b.employee_id, b.designation, b.department, b.max_approval_limit
+        b.bank_id, b.employee_id, b.designation, b.department, b.max_approval_limit,bnk.name as bank_name, b.branch, b.branch_code
       FROM users u
       LEFT JOIN user_profiles up ON u.id = up.user_id
       LEFT JOIN connectors c ON u.id = c.user_id
       LEFT JOIN bankers b ON u.id = b.user_id
+      LEFT JOIN banks bnk ON bnk.id = b.bank_id
       WHERE u.id = ?
     `
 
@@ -61,7 +62,12 @@ export async function PUT(request, { params }) {
       password, // Optional
       // Role specific fields
       commission_percentage,
-      max_approval_limit
+      max_approval_limit,
+      branch,
+      branch_code,
+      employee_id,
+      designation,
+      department
     } = body
 
     // Update user profile
@@ -97,8 +103,16 @@ export async function PUT(request, { params }) {
 
     if (max_approval_limit !== undefined) {
       await executeQuery(
-        'UPDATE bankers SET max_approval_limit = ? WHERE user_id = ?',
-        [max_approval_limit, id]
+        'UPDATE bankers SET max_approval_limit = ?, branch=?, branch_code=?,employee_id=?, designation=?, department=?  WHERE user_id = ?',
+        [ 
+          max_approval_limit,
+          branch,
+          branch_code,
+          employee_id,
+          designation,
+          department, 
+          id
+        ]
       )
     }
 

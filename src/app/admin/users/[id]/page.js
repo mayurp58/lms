@@ -226,6 +226,14 @@ export default  function ViewUserPage({ params }) {
                   <dd className="mt-1 text-sm text-gray-900">{user.bank_name || 'Not specified'}</dd>
                 </div>
                 <div>
+                  <dt className="text-sm font-medium text-gray-500">Bank Branch</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{user.branch || 'Not specified'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Bank Branch Code</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{user.branch_code || 'Not specified'}</dd>
+                </div>
+                <div>
                   <dt className="text-sm font-medium text-gray-500">Employee ID</dt>
                   <dd className="mt-1 text-sm text-gray-900">{user.employee_id || 'Not provided'}</dd>
                 </div>
@@ -248,15 +256,6 @@ export default  function ViewUserPage({ params }) {
           </div>
         )}
 
-        {/* Recent Activity - Placeholder for future implementation */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-              Recent Activity
-            </h3>
-            <p className="text-sm text-gray-500">Activity tracking will be implemented soon.</p>
-          </div>
-        </div>
       </div>
     </DashboardLayout>
   )

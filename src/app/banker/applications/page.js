@@ -64,6 +64,7 @@ function ApplicationsListContent() {
   }
 
   const getApplicationPriority = (app) => {
+    
     const daysSinceCreated = Math.floor((new Date() - new Date(app.created_at)) / (1000 * 60 * 60 * 24))
     if (daysSinceCreated > 7) return 'high'
     if (daysSinceCreated > 3) return 'medium'
@@ -193,10 +194,10 @@ function ApplicationsListContent() {
                         {/* Customer & Loan Info */}
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm text-gray-600 mb-3">
                           <div>
-                            <span className="font-medium">Customer:</span> {app.first_name} {app.last_name}
+                            <span className="font-medium">Customer:</span> {app.customer_first_name} {app.customer_last_name}
                           </div>
                           <div>
-                            <span className="font-medium">Phone:</span> {app.phone}
+                            <span className="font-medium">Phone:</span> {app.customer_phone}
                           </div>
                           <div>
                             <span className="font-medium">Loan Category:</span> {app.loan_category_name}

@@ -223,6 +223,7 @@ export default function ApplicationsListPage() {
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
                 <option value="disbursed">Disbursed</option>
+                <option value="document_rejected">Documents Rejected</option>
               </select>
             </div>
 

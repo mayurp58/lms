@@ -48,6 +48,14 @@ export async function PUT(request, { params }) {
       )
     }
 
+    //document_rejected status set if document is rejected
+    if(verification_status==='rejected')
+    {
+      const application = await executeQuery('select loan_application_id from customer_documents where id = ?', [id]);
+
+      const upd = await executeQuery('update loan_applications set status="document_rejected" where id = ? ', [application[0].loan_application_id]);
+    }
+
     // Log the activity
     const logQuery = `
       INSERT INTO system_logs (
