@@ -146,17 +146,32 @@ export async function GET(request, { params }) {
       b.id as bank_id,
       b.name as bank_name,
       b.code as bank_code,
+      up.user_id as banker_user_id,
       up.first_name as banker_name,
       up.last_name as banker_last_name,
-      bk.designation as banker_designation
+      bk.designation as banker_designation,
+      bk.department as banker_department,
+      bk.branch as branch_name,
+      bk.city as branch_city,
+      bk.employee_id as banker_employee_id,
+      -- Optional: Include loan offer info if exists
+      lo.id as offer_id,
+      lo.offered_amount,
+      lo.interest_rate,
+      lo.status as offer_status
     FROM application_distributions ad
     JOIN banks b ON ad.bank_id = b.id
+    -- Direct join to bankers table using banker_user_id
+    JOIN bankers bk ON ad.banker_user_id = bk.user_id 
+    -- Join to users table for user info
+    JOIN users u ON bk.user_id = u.id
+    -- Join to user_profiles for name info
+    JOIN user_profiles up ON u.id = up.user_id
+    -- Optional: Left join to loan_offers to show offers if they exist
     LEFT JOIN loan_offers lo ON ad.loan_application_id = lo.loan_application_id 
       AND ad.bank_id = lo.bank_id 
+      AND lo.banker_user_id = ad.banker_user_id
       AND lo.status = 'active'
-    LEFT JOIN bankers bk ON lo.banker_user_id = bk.user_id  -- Use existing bankers table
-    LEFT JOIN users u ON bk.user_id = u.id
-    LEFT JOIN user_profiles up ON u.id = up.user_id
     WHERE ad.loan_application_id = ?
     ORDER BY ad.sent_at DESC
   `

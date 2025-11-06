@@ -13,7 +13,7 @@ function ApplicationsListContent() {
   const [filters, setFilters] = useState({
     page: 1,
     limit: 10,
-    status: 'verified',
+    status: 'sent_to_bankers',
     search: ''
   })
   const [pagination, setPagination] = useState({})
@@ -95,7 +95,7 @@ function ApplicationsListContent() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { key: 'verified', label: 'Pending Review', color: 'blue' },
+            { key: 'sent_to_bankers', label: 'Pending Review', color: 'blue' },
             { key: 'approved', label: 'Approved', color: 'green' },
             { key: 'rejected', label: 'Rejected', color: 'red' },
             { key: 'disbursed', label: 'Disbursed', color: 'purple' }
@@ -184,7 +184,7 @@ function ApplicationsListContent() {
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(app.status)}`}>
                             {app.status.replace('_', ' ')}
                           </span>
-                          {filters.status === 'verified' && (
+                          {filters.status === 'sent_to_bankers' && (
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPriorityColor(priority)}`}>
                               {priority} priority
                             </span>
@@ -244,7 +244,7 @@ function ApplicationsListContent() {
                           href={`/banker/applications/${app.id}`}
                           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                         >
-                          {filters.status === 'verified' ? 'Review & Decide' : 'View Details'}
+                          {filters.status === 'sent_to_bankers' ? 'Review & Decide' : 'View Details'}
                         </Link>
                       </div>
                     </div>

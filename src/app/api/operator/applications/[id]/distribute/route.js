@@ -14,11 +14,11 @@ export async function POST(request, { params }) {
       )
     }
 
-    const { bank_ids, response_due_hours = 48 } = await request.json()
+    const { bank_id,banker_id, response_due_hours = 48 } = await request.json()
 
-    if (!bank_ids || bank_ids.length === 0) {
+    if (!bank_id || bank_id.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Please select at least one bank' },
+        { success: false, message: 'Please select a banker' },
         { status: 400 }
       )
     }
@@ -45,22 +45,41 @@ export async function POST(request, { params }) {
     const responseDueDate = new Date()
     responseDueDate.setHours(responseDueDate.getHours() + response_due_hours)
 
-    // Insert distribution records
-    const insertPromises = bank_ids.map(bankId => {
-      const distributionQuery = `
-        INSERT INTO application_distributions 
-        (loan_application_id, bank_id, operator_user_id, response_due_date, sent_at)
-        VALUES (?, ?, ?, ?, NOW())
-      `
-      return executeQuery(distributionQuery, [id, bankId, userId, responseDueDate])
-    })
 
-    await Promise.all(insertPromises)
+    const duplicateCheckQuery = `
+      SELECT id FROM application_distributions 
+      WHERE loan_application_id = ? AND (
+        (banker_user_id = ?) OR 
+        (bank_id = ? AND banker_user_id = ?)
+      )
+    `
+    
+    const existingDistribution = await executeQuery(duplicateCheckQuery, [
+      id, 
+      banker_id, 
+      bank_id, 
+      banker_id
+    ])
+    
+    if (existingDistribution.length > 0) {
+      return NextResponse.json(
+        { success: false, message: 'This application has already been sent to this banker/branch' },
+        { status: 400 }
+      )
+    }
+   
+
+    const distributionQuery = `
+        INSERT INTO application_distributions 
+        (loan_application_id, bank_id, banker_user_id, operator_user_id, response_due_date, sent_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+      `
+     executeQuery(distributionQuery, [id, bank_id, banker_id, userId, responseDueDate])
 
     // Update application marketplace status
     const updateAppQuery = `
       UPDATE loan_applications 
-      SET marketplace_status = 'distributed', updated_at = NOW() 
+      SET status='sent_to_bankers', marketplace_status = 'distributed', updated_at = NOW() 
       WHERE id = ?
     `
     await executeQuery(updateAppQuery, [id])
@@ -78,23 +97,23 @@ export async function POST(request, { params }) {
       'APPLICATION_DISTRIBUTED',
       'loan_application',
       id,
-      JSON.stringify({ distributed_to_banks: bank_ids.length, response_due_hours }),
+      JSON.stringify({ distributed_to_banks: bank_id, banker_id, response_due_hours }),
       request.headers.get('x-forwarded-for') || 'unknown'
     ])
 
     return NextResponse.json({
       success: true,
-      message: `Application distributed to ${bank_ids.length} bank(s) successfully`,
+      message: `Application assigned to banker successfully`,
       data: {
-        distributed_count: bank_ids.length,
+        distributed_count: bank_id.length,
         response_due_date: responseDueDate
       }
     })
 
   } catch (error) {
-    console.error('Distribute application error:', error)
+    console.error('Assign application error:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to distribute application: ' + error.message },
+      { success: false, message: 'Failed to assign application: ' + error.message },
       { status: 500 }
     )
   }

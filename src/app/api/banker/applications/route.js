@@ -43,7 +43,7 @@ export async function GET(request) {
 
     // Apply filters
     if (filter === 'pending') {
-      whereCondition += ' AND la.status = "submitted"'
+      whereCondition += ' AND la.status = "sent_to_bankers"'
     } else if (filter === 'approved') {
       whereCondition += ' AND la.status = "approved"'
     } else if (filter === 'disbursed') {
@@ -69,7 +69,10 @@ export async function GET(request) {
         la.company_name,
         la.work_experience_years,
         la.existing_loans_amount,
-
+        (SELECT COUNT(*) 
+         FROM customer_documents cd 
+         WHERE cd.loan_application_id = la.id 
+         AND cd.verification_status = 'verified') as verified_documents,
         
         -- Customer details
         c.first_name as customer_first_name,

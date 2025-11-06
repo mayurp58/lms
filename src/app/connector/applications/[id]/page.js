@@ -133,6 +133,12 @@ export default function ViewApplicationPage({ params }) {
                     {application.city}, {application.state} - {application.pincode}
                   </dd>
                 </div>
+                {application.operator_remarks!= '' && <div className="sm:col-span-2">
+                  <dt className="text-sm font-medium text-red-600">Documents Requested</dt>
+                  <dd className="mt-1 text-sm text-red-600">
+                    {application.operator_remarks}
+                  </dd>
+                </div>}
               </dl>
             </div>
           </div>
