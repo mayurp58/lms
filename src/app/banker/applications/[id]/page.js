@@ -11,6 +11,13 @@ export default function BankerApplicationDetailPage({ params }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('overview')
+
+  //Request more docuements
+  const [selectedDocumentId, setSelectedDocumentId] = useState(null)
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [selectedDocs, setSelectedDocs] = useState([])
+  const [requestingDocs, setRequestingDocs] = useState(false)
+  const [allDocs, setAllDocs] = useState([])
   
   // Offer states
   const [offerData, setOfferData] = useState({
@@ -59,6 +66,15 @@ export default function BankerApplicationDetailPage({ params }) {
       } else {
         setError(data.message)
       }
+
+      // Fetch available documents list
+      const docsRes = await fetch('/api/admin/documents')
+      const docsData = await docsRes.json()
+
+      if (docsData.success) {
+        setAllDocs(docsData.data)
+      } 
+
     } catch (error) {
       console.error('Error fetching application:', error)
       setError('Failed to fetch application details')
@@ -215,7 +231,7 @@ export default function BankerApplicationDetailPage({ params }) {
               )}
 
               <div>
-                <p className="font-semibold">{formatCurrency(application.requested_amount)} requested</p>
+                <p className="font-semibold text-gray-600">{formatCurrency(application.requested_amount)} requested</p>
                 <p className="text-sm text-gray-600">{application.loan_category_name}</p>
               </div>
             </div>
@@ -296,20 +312,20 @@ export default function BankerApplicationDetailPage({ params }) {
                 <dl className="space-y-3">
                   <div className="flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Name</dt>
-                    <dd className="text-sm text-gray-900">{application.customer_first_name} {application.customer_last_name}</dd>
+                    <dd className="text-sm text-gray-900">{application.first_name} {application.last_name}</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                    <dd className="text-sm text-gray-900">{application.customer_phone}</dd>
+                    <dd className="text-sm text-gray-900">{application.phone}</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-sm font-medium text-gray-500">Email</dt>
-                    <dd className="text-sm text-gray-900">{application.customer_email || 'Not provided'}</dd>
+                    <dd className="text-sm text-gray-900">{application.email || 'Not provided'}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500 mb-1">Address</dt>
                     <dd className="text-sm text-gray-900">
-                      {application.customer_address}, {application.customer_city}, {application.customer_state} - {application.customer_pincode}
+                      {application.address}, {application.city}, {application.state} - {application.pincode}
                     </dd>
                   </div>
                 </dl>
@@ -320,6 +336,14 @@ export default function BankerApplicationDetailPage({ params }) {
           {/* Documents Tab */}
           {activeTab === 'documents' && (
             <div className="space-y-6">
+              <div className='flex justify-end'>
+                <button 
+                  onClick={() => setShowRequestModal(true)}
+                  className='bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm'
+                >
+                  📄 Request More Documents
+                </button>
+              </div>
               {documents.length > 0 ? (
                 <div className="grid gap-6">
                   {documents.map((doc) => (
@@ -586,7 +610,7 @@ export default function BankerApplicationDetailPage({ params }) {
             <div className="space-y-6">
               {competing_offers.length > 0 ? (
                 <div className="space-y-4">
-                  <h2 className="text-xl font-semibold">Competing Offers ({competing_offers.length})</h2>
+                  <h2 className="text-xl font-semibold text-gray-700">Competing Offers ({competing_offers.length})</h2>
                   
                   {competing_offers.map(offer => (
                     <div key={offer.id} className={`bg-white shadow rounded-lg border-2 ${
@@ -600,7 +624,7 @@ export default function BankerApplicationDetailPage({ params }) {
                                 <span className="text-orange-600 font-bold">🏦</span>
                               </div>
                               <div>
-                                <h3 className="text-xl font-semibold">{offer.bank_name}</h3>
+                                <h3 className="text-xl font-semibold text-gray-600">{offer.bank_name}</h3>
                                 <p className="text-sm text-gray-600">Competitor Bank</p>
                               </div>
                             </div>
@@ -662,6 +686,78 @@ export default function BankerApplicationDetailPage({ params }) {
           )}
         </div>
       </div>
+
+      {showRequestModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 w-96 max-h-[90vh] overflow-y-auto">
+      <h3 className="text-lg font-semibold mb-4 text-black">Request More Documents</h3>
+      
+      <div className="space-y-3">
+        {allDocs.map((doc) => (
+          <label key={doc.id} className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              checked={selectedDocs.includes(doc.name)}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedDocs([...selectedDocs, doc.name])
+                } else {
+                  setSelectedDocs(selectedDocs.filter(id => id !== doc.name))
+                }
+              }}
+              className="rounded"
+            />
+            <span className="text-sm text-black">{doc.name}</span>
+          </label>
+        ))}
+      </div>
+
+      <div className="flex space-x-3 mt-6">
+        <button
+          onClick={async () => {
+            if (selectedDocs.length === 0) {
+              alert('Please select at least one document type')
+              return
+            }
+            setRequestingDocs(true)
+            try {
+              const res = await fetch(`/api/banker/applications/${renderedParams.id}/request-documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ documents: selectedDocs })
+              })
+              const data = await res.json()
+              if (data.success) {
+                alert('Document request sent successfully!')
+                setShowRequestModal(false)
+                setSelectedDocs([])
+                fetchData()
+              } else {
+                alert('Error: ' + data.message)
+              }
+            } catch (err) {
+              alert('Failed to request documents: ' + err.message)
+            }
+            setRequestingDocs(false)
+          }}
+          disabled={requestingDocs || selectedDocs.length === 0}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+          {requestingDocs ? 'Requesting...' : `Request ${selectedDocs.length} Document(s)`}
+        </button>
+        <button
+          onClick={() => {
+            setShowRequestModal(false)
+            setSelectedDocs([])
+          }}
+          className="border border-gray-300 px-4 py-2 text-black rounded-md hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </DashboardLayout>
   )
 }

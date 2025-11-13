@@ -346,12 +346,20 @@ export default function OperatorApplicationsPage() {
                             </button>
                           )}
 
-                          {app.status === 'under_verification' && app.pending_documents === 0 && (
+                          {(app.status === 'under_verification') && (
                             <button
                               onClick={() => handleStatusUpdate(app.id, 'verified', 'All documents verified')}
                               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                             >
-                              Mark Verified
+                             ✅ Mark Verified
+                            </button>
+                          )}
+                          {(app.status === 'document_requested' ) && (
+                            <button
+                              onClick={() => handleStatusUpdate(app.id, 'sent_to_bankers', 'All documents verified')}
+                              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                            >
+                              ✅ Document Verified
                             </button>
                           )}
                         </div>

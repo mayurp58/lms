@@ -24,7 +24,7 @@ export async function PUT(request, { params }) {
     }
 
     // Validate status transitions for operators
-    const validStatuses = ['under_verification', 'verified', 'rejected']
+    const validStatuses = ['under_verification', 'verified', 'rejected', 'sent_to_bankers']
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, message: 'Invalid status for operator' },
@@ -48,7 +48,7 @@ export async function PUT(request, { params }) {
     // Update application status
     const updateQuery = `
       UPDATE loan_applications 
-      SET status = ?, updated_at = NOW() 
+      SET status = ?, operator_remarks='', banker_remarks='',  updated_at = NOW() 
       WHERE id = ?
     `
 

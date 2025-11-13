@@ -21,7 +21,7 @@ export async function GET(request, { params }) {
         la.disbursed_amount, la.status, la.marketplace_status, 
         la.created_at, la.updated_at, la.approved_interest_rate, 
         la.approved_tenure_months, la.special_instructions, la.selected_offer_id,
-        
+        la.banker_remarks,
         -- Customer details
         c.id as customer_id,
         c.first_name as customer_first_name, 

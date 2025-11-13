@@ -422,6 +422,8 @@ const handleSendToSpecificBranch = async () => {
               </div>
             </div>
           )}
+
+          {application.banker_remarks !== '' && <p className='text-md text-red-500 font-bold mt-5'> Document Requested By Banker : {application.banker_remarks}</p>}
         </div>
 
         {/* Tabs - ADDED BANKS TAB */}
