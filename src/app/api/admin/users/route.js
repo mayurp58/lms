@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { executeQuery, executeQueryWithLimit } from '@/lib/db/mysql'
+import { executeQuery } from '@/lib/db/mysql' // <--- REMOVED executeQueryWithLimit
 import { hashPassword } from '@/lib/auth/jwt'
 import { validateUserData } from '@/lib/validations'
 import { generateAgentCode } from '@/lib/utils'
@@ -33,7 +33,7 @@ export async function GET(request) {
 
     // Build where clause and parameters separately
     let whereConditions = []
-    let queryParams = []
+    let queryParams = [] // Parameters for the WHERE clause only
 
     if (role && role.trim() !== '') {
       whereConditions.push('u.role = ?')
@@ -66,12 +66,12 @@ export async function GET(request) {
     `
     
     //console.log('🔢 Count query:', countQuery)
-    const countResult = await executeQuery(countQuery, queryParams)
+    const countResult = await executeQuery(countQuery, queryParams) // Use queryParams for count
     const total = countResult[0].total
     //console.log('📊 Total users found:', total)
 
-    // Get users with pagination - use the new method
-    const baseUsersQuery = `
+    // Get users with pagination - use string interpolation for LIMIT/OFFSET
+    const usersQuery = `
       SELECT 
         u.id, u.email, u.role, u.status, u.created_at,
         up.first_name, up.last_name, up.phone, up.city, up.state,
@@ -84,13 +84,15 @@ export async function GET(request) {
       LEFT JOIN banks bank ON b.bank_id = bank.id
       ${whereClause}
       ORDER BY u.created_at DESC
+      LIMIT ${limit} OFFSET ${offset} -- <--- DIRECT INTERPOLATION
     `
 
-    //console.log('👥 Base users query:', baseUsersQuery)
-    //console.log('👥 Params:', queryParams)
-    //console.log('👥 Limit:', limit, 'Offset:', offset)
+    // Now, the parameters array passed to executeQuery should ONLY contain the WHERE clause parameters.
+    // LIMIT and OFFSET are already part of the SQL string.
+    //console.log('👥 Users query (with interpolated LIMIT/OFFSET):', usersQuery)
+    //console.log('👥 Params for users query:', queryParams)
 
-    const users = await executeQueryWithLimit(baseUsersQuery, queryParams, limit, offset)
+    const users = await executeQuery(usersQuery, queryParams) // <--- Use executeQuery
     //console.log('✅ Users fetched:', users.length)
 
     return NextResponse.json({
@@ -204,6 +206,7 @@ export async function POST(request) {
     }
 
     // Execute transaction
+    // Assuming executeTransaction is correctly exported from mysql.js
     const { executeTransaction } = await import('@/lib/db/mysql')
     const results = await executeTransaction(queries)
 

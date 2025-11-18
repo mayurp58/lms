@@ -15,6 +15,7 @@ export default function DisbursementDetailPage({ params }) {
   const [showDisbursementForm, setShowDisbursementForm] = useState(false)
   const router = useRouter()
 
+  // Initialize form state
   const [disbursementForm, setDisbursementForm] = useState({
     disbursement_amount: '',
     disbursement_date: new Date().toISOString().split('T')[0],
@@ -22,7 +23,9 @@ export default function DisbursementDetailPage({ params }) {
     account_number: '',
     ifsc_code: '',
     transaction_reference: '',
-    disbursement_remarks: ''
+    disbursement_remarks: '',
+    comission_amount: '', 
+    status: 'disbursed'
   })
 
   useEffect(() => {
@@ -34,17 +37,30 @@ export default function DisbursementDetailPage({ params }) {
 
   const fetchApplication = async (id) => {
     try {
-      // Use the admin API endpoint instead of banker API
       const res = await fetch(`/api/admin/applications/${id}`)
       const data = await res.json()
 
       if (data.success) {
         setApplicationData(data.data)
-        // Set default disbursement amount
+        
+        const app = data.data.application;
+        // Calculate remaining amount for auto-fill
+        const approved = parseFloat(app.approved_amount) || 0;
+        const disbursedSoFar = parseFloat(app.disbursed_amount) || 0;
+        const remaining = Math.max(0, approved - disbursedSoFar);
+
+        // Auto-fill form with remaining amount
         setDisbursementForm(prev => ({
           ...prev,
-          disbursement_amount: data.data.application.approved_amount?.toString() || ''
+          disbursement_amount: remaining > 0 ? remaining.toString() : '',
+          status: remaining > 0 ? 'disbursed' : 'disbursed' 
         }))
+        
+        // If partially disbursed, likely want to disburse more, so show form
+        if (app.status === 'partially_disbursed' && remaining > 0) {
+            setShowDisbursementForm(true);
+        }
+
       } else {
         setError(data.message)
       }
@@ -56,7 +72,14 @@ export default function DisbursementDetailPage({ params }) {
   }
 
   const handleDisburse = async () => {
-    if (!disbursementForm.disbursement_amount || 
+    const app = applicationData.application;
+    const approved = parseFloat(app.approved_amount) || 0;
+    const disbursedSoFar = parseFloat(app.disbursed_amount) || 0;
+    const remaining = approved - disbursedSoFar;
+    const currentAmount = parseFloat(disbursementForm.disbursement_amount);
+
+    // Validations
+    if (!currentAmount || 
         !disbursementForm.bank_name || 
         !disbursementForm.account_number || 
         !disbursementForm.ifsc_code || 
@@ -65,14 +88,17 @@ export default function DisbursementDetailPage({ params }) {
       return
     }
 
-    // Validate IFSC code format
+    if (currentAmount > remaining) {
+        alert(`Disbursement amount (${formatCurrency(currentAmount)}) cannot exceed remaining balance (${formatCurrency(remaining)})`);
+        return;
+    }
+
     const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/
     if (!ifscRegex.test(disbursementForm.ifsc_code)) {
       alert('Please enter a valid IFSC code (e.g., HDFC0000001)')
       return
     }
 
-    // Validate account number
     if (disbursementForm.account_number.length < 8 || disbursementForm.account_number.length > 18) {
       alert('Account number should be between 8-18 digits')
       return
@@ -80,18 +106,21 @@ export default function DisbursementDetailPage({ params }) {
 
     setProcessing(true)
     try {
-      const res = await fetch(`/api/admin/disbursements/${applicationData.application.id}/disburse`, {
+      const res = await fetch(`/api/admin/disbursements/${app.id}/disburse`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(disbursementForm),
+        body: JSON.stringify({
+            ...disbursementForm,
+            comission_amount: disbursementForm.comission_amount || null 
+        }),
       })
 
       const data = await res.json()
 
       if (data.success) {
-        alert('Loan disbursed successfully!')
+        alert('Disbursement processed successfully!')
         router.push('/admin/disbursements?status=disbursed')
       } else {
         alert('Failed to disburse loan: ' + data.message)
@@ -144,17 +173,30 @@ export default function DisbursementDetailPage({ params }) {
     )
   }
 
-  const { application } = applicationData
+  const { application, disbursements = [] } = applicationData
+  
+  // Calculations
+  const approvedAmount = parseFloat(application.approved_amount) || 0;
+  const disbursedSoFar = parseFloat(application.disbursed_amount) || 0;
+  const remainingAmount = Math.max(0, approvedAmount - disbursedSoFar);
+
   const monthlyEMI = calculateEMI(
     application.approved_amount,
     application.approved_interest_rate,
     application.approved_tenure_months
   )
   const totalInterest = (monthlyEMI * application.approved_tenure_months) - application.approved_amount
-  const commissionAmount = calculateCommission(
-    parseFloat(disbursementForm.disbursement_amount) || application.approved_amount,
+  
+  // Dynamic commission based on what user types
+  const currentInputAmount = parseFloat(disbursementForm.disbursement_amount) || 0;
+  const calculatedCommission = calculateCommission(
+    currentInputAmount,
     application.commission_percentage
   )
+
+  // Determine button state
+  const isFullyDisbursed = remainingAmount <= 0 && application.status === 'disbursed';
+  const canDisburse = !isFullyDisbursed;
 
   return (
     <DashboardLayout requiredRole="admin">
@@ -179,7 +221,7 @@ export default function DisbursementDetailPage({ params }) {
 
         {/* Status Banner */}
         <div className={`rounded-md p-4 ${
-          application.status === 'approved' ? 'bg-blue-50 border border-blue-200' :
+          application.status === 'approved' ? 'bg-green-50 border border-green-200' :
           application.status === 'disbursed' ? 'bg-green-50 border border-green-200' :
           'bg-yellow-50 border border-yellow-200'
         }`}>
@@ -194,9 +236,14 @@ export default function DisbursementDetailPage({ params }) {
                     Approved on {formatDate(application.approved_at)} • Ready for disbursement
                   </p>
                 )}
-                {application.disbursed_at && (
+                {application.status === 'partially_disbursed' && (
                   <p className="text-sm text-gray-700">
-                    Disbursed on {formatDate(application.disbursed_at)}
+                    Partially Disbursed • Remaining: <strong>{formatCurrency(remainingAmount)}</strong>
+                  </p>
+                )}
+                {application.status === 'disbursed' && (
+                  <p className="text-sm text-gray-700">
+                    Fully Disbursed on {formatDate(application.disbursed_at)}
                   </p>
                 )}
               </div>
@@ -204,8 +251,7 @@ export default function DisbursementDetailPage({ params }) {
           </div>
         </div>
 
-        {/* Rest of your existing JSX remains the same */}
-        {/* Loan Summary Cards */}
+        {/* Loan Summary Cards - Exact Layout from Previous Design */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Loan Details */}
           <div className="bg-white shadow rounded-lg">
@@ -236,6 +282,13 @@ export default function DisbursementDetailPage({ params }) {
                     <p className="text-lg font-semibold text-red-600">{formatCurrency(totalInterest)}</p>
                   </div>
                 </div>
+                {/* Show remaining balance if partial */}
+                {remainingAmount > 0 && (
+                   <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between">
+                      <span className="font-medium text-gray-500">Remaining Balance:</span>
+                      <span className="text-yellow-600 font-bold">{formatCurrency(remainingAmount)}</span>
+                   </div>
+                )}
               </div>
             </div>
           </div>
@@ -295,24 +348,23 @@ export default function DisbursementDetailPage({ params }) {
                     <p className="text-lg font-bold text-purple-900">{application.commission_percentage}%</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-medium text-purple-700">Amount</span>
+                    <span className="text-sm font-medium text-purple-700">Current Batch</span>
+                    {/* Dynamic calc based on input */}
                     <p className="text-lg font-bold text-purple-900">
-                      {formatCurrency(commissionAmount)}
+                      {formatCurrency(calculatedCommission)}
                     </p>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                  Commission will be credited to connector account upon disbursement
+                  Commission is calculated on the disbursed amount for this specific transaction.
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Continue with the rest of your existing JSX... */}
-        
-        {/* Disbursement Form */}
-        {application.status === 'approved' && (
+        {/* Disbursement Form (Shown if allowed) */}
+        {canDisburse && (
           <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <div className="flex justify-between items-center mb-6">
@@ -341,10 +393,12 @@ export default function DisbursementDetailPage({ params }) {
                       </div>
                       <div className="ml-3">
                         <h3 className="text-sm font-medium text-yellow-800">
-                          Important Notice
+                          Disbursement Notice
                         </h3>
                         <p className="text-sm text-yellow-700 mt-1">
-                          Please ensure all bank details are accurate before processing. This action cannot be undone.
+                          Total Approved: <b>{formatCurrency(approvedAmount)}</b>. 
+                          Already Disbursed: <b>{formatCurrency(disbursedSoFar)}</b>. 
+                          You can disburse up to <b>{formatCurrency(remainingAmount)}</b> now.
                         </p>
                       </div>
                     </div>
@@ -357,12 +411,12 @@ export default function DisbursementDetailPage({ params }) {
                         type="number"
                         value={disbursementForm.disbursement_amount}
                         onChange={(e) => setDisbursementForm(prev => ({ ...prev, disbursement_amount: e.target.value }))}
-                        max={application.approved_amount}
+                        max={remainingAmount}
                         placeholder="Enter disbursement amount"
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Maximum: {formatCurrency(application.approved_amount)}
+                        Maximum: {formatCurrency(remainingAmount)}
                       </p>
                     </div>
 
@@ -430,9 +484,32 @@ export default function DisbursementDetailPage({ params }) {
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Custom Comission Amount</label>
+                      <input
+                        type="number"
+                        value={disbursementForm.comission_amount ?? calculatedCommission}
+                        onChange={(e) => setDisbursementForm(prev => ({ ...prev, comission_amount: e.target.value }))}
+                        placeholder="Override calculated commission"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Status *</label>
+                      <select
+                        value={disbursementForm.status}
+                        onChange={(e) => setDisbursementForm(prev => ({ ...prev, status: e.target.value }))}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900"
+                      >
+                        <option value="disbursed">Fully Disbursed (Final)</option>
+                        <option value="partially_disbursed">Partially Disbursed (More to come)</option>
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Commission Summary */}
+                  {/* Commission Summary Box - Same as previous */}
                   <div className="bg-purple-50 p-4 rounded-md">
                     <h4 className="text-sm font-medium text-purple-900 mb-2">Commission Summary</h4>
                     <div className="grid grid-cols-3 gap-4 text-sm">
@@ -449,7 +526,7 @@ export default function DisbursementDetailPage({ params }) {
                       <div>
                         <span className="text-purple-700">Commission Amount:</span>
                         <p className="font-semibold text-purple-900">
-                          {formatCurrency(commissionAmount)}
+                          {formatCurrency(calculatedCommission)}
                         </p>
                       </div>
                     </div>
@@ -492,51 +569,47 @@ export default function DisbursementDetailPage({ params }) {
           </div>
         )}
 
-        {/* Already Disbursed */}
-        {application.status === 'disbursed' && application.disbursement_details && (
+        {/* Already Disbursed - History List */}
+        {(application.status === 'disbursed' || application.status === 'partially_disbursed' || disbursements.length > 0) && (
           <div className="bg-green-50 border border-green-200 rounded-md p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-3 flex-1">
-                <h3 className="text-sm font-medium text-green-800">
-                  Loan Successfully Disbursed
-                </h3>
-                <div className="mt-2 text-sm text-green-700">
-                  {(() => {
-                    try {
-                      const details = JSON.parse(application.disbursement_details)
-                      return (
-                        <div className="grid grid-cols-2 gap-4">
+             <div className="flex items-center mb-4">
+                 <div className="flex-shrink-0 mr-3">
+                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                 </div>
+                 <h3 className="text-sm font-medium text-green-800">Disbursement History</h3>
+             </div>
+            
+             <div className="space-y-4 pl-8">
+                 {disbursements.map((txn, idx) => (
+                     <div key={txn.id} className="bg-white p-4 rounded border border-green-100 shadow-sm">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <p><span className="font-medium">Amount:</span> {formatCurrency(application.disbursed_amount)}</p>
-                            <p><span className="font-medium">Bank:</span> {details.bank_name}</p>
-                            <p><span className="font-medium">Account:</span> {details.account_number}</p>
+                            <p className="text-gray-500 text-xs">Amount</p>
+                            <p className="font-bold text-gray-900">{formatCurrency(txn.disbursed_amount)}</p>
                           </div>
                           <div>
-                            <p><span className="font-medium">IFSC:</span> {details.ifsc_code}</p>
-                            <p><span className="font-medium">Reference:</span> {details.transaction_reference}</p>
-                            <p><span className="font-medium">Date:</span> {formatDate(application.disbursed_at)}</p>
+                            <p className="text-gray-500 text-xs">Date</p>
+                            <p className="font-medium text-gray-900">{formatDate(txn.disbursement_date)}</p>
                           </div>
-                          {details.remarks && (
-                            <div className="col-span-2">
-                              <p><span className="font-medium">Remarks:</span> {details.remarks}</p>
-                            </div>
-                          )}
+                          <div>
+                             <p className="text-gray-500 text-xs">Bank & Ref</p>
+                             <p className="text-gray-900">{txn.bank_reference} (Ref: {txn.reference_number})</p>
+                          </div>
+                          <div>
+                             <p className="text-gray-500 text-xs">Commission</p>
+                             <p className="text-purple-700 font-medium">{formatCurrency(txn.connector_commission)}</p>
+                          </div>
                         </div>
-                      )
-                    } catch (error) {
-                      return (
-                        <p>Disbursement completed on {formatDate(application.disbursed_at)}</p>
-                      )
-                    }
-                  })()}
-                </div>
-              </div>
-            </div>
+                     </div>
+                 ))}
+                 {/* Total Summary Footer */}
+                 <div className="pt-2 border-t border-green-200 flex justify-between text-sm">
+                     <span className="text-green-800 font-medium">Total Disbursed:</span>
+                     <span className="text-green-900 font-bold">{formatCurrency(disbursedSoFar)}</span>
+                 </div>
+             </div>
           </div>
         )}
       </div>

@@ -3,8 +3,16 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
+import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils' // Assuming these are correctly implemented
 import Link from 'next/link'
+
+// Helper to calculate commission *rate* on an amount.
+// The total commission for an application will come from the backend.
+const calculateCommissionFromRate = (amount, percentage) => {
+  const safeAmount = parseFloat(amount) || 0
+  const safePercentage = parseFloat(percentage) || 0
+  return (safeAmount * safePercentage) / 100
+}
 
 function DisbursementsListContent() {
   const [applications, setApplications] = useState([])
@@ -12,19 +20,20 @@ function DisbursementsListContent() {
   const [filters, setFilters] = useState({
     page: 1,
     limit: 10,
-    status: 'disbursed'
+    status: 'approved' // Default status when component loads
   })
   const [pagination, setPagination] = useState({})
   const searchParams = useSearchParams()
 
+  // Effect to read initial status from URL params
   useEffect(() => {
-    // Get status from URL params
     const urlStatus = searchParams.get('status')
     if (urlStatus) {
       setFilters(prev => ({ ...prev, status: urlStatus }))
     }
-  }, [searchParams])
+  }, [searchParams]) // Only re-run if searchParams object changes
 
+  // Effect to fetch applications whenever filters change
   useEffect(() => {
     fetchApplications()
   }, [filters])
@@ -34,10 +43,12 @@ function DisbursementsListContent() {
     try {
       const params = new URLSearchParams()
       Object.keys(filters).forEach(key => {
-        if (filters[key]) params.append(key, filters[key])
+        if (filters[key] !== null && filters[key] !== undefined) {
+          params.append(key, filters[key])
+        }
       })
 
-      const res = await fetch(`/api/admin/disbursements?${params}`)
+      const res = await fetch(`/api/admin/disbursements?${params.toString()}`)
       const data = await res.json()
 
       if (data.success) {
@@ -45,34 +56,24 @@ function DisbursementsListContent() {
         setPagination(data.data.pagination)
       } else {
         console.error('Failed to fetch applications:', data.message)
+        setApplications([]) // Clear applications on error
+        setPagination({})
       }
     } catch (error) {
       console.error('Error fetching applications:', error)
+      setApplications([]) // Clear applications on error
+      setPagination({})
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
       [key]: value,
-      page: 1
+      page: 1 // Reset to first page when filters change
     }))
-  }
-
-  // FIXED: Safe calculation functions
-  const calculateCommission = (amount, percentage) => {
-    const safeAmount = parseFloat(amount) || 0
-    const safePercentage = parseFloat(percentage) || 0
-    return (safeAmount * safePercentage) / 100
-  }
-
-  const getDisplayAmount = (app, status) => {
-    if (status === 'approved') {
-      return parseFloat(app.approved_amount) || 0
-    } else {
-      return parseFloat(app.disbursed_amount) || parseFloat(app.approved_amount) || 0
-    }
   }
 
   const getDaysSinceApproval = (approvedAt) => {
@@ -85,6 +86,35 @@ function DisbursementsListContent() {
     if (daysWaiting > 3) return { level: 'medium', color: 'bg-yellow-100 text-yellow-800', label: 'Medium' }
     return { level: 'low', color: 'bg-green-100 text-green-800', label: 'Normal' }
   }
+
+  // Calculate Aggregated Statistics for the cards
+  const totalStats = applications.reduce((acc, app) => {
+    const approvedAmount = parseFloat(app.approved_amount) || 0;
+    const disbursedAmount = parseFloat(app.disbursed_amount) || 0;
+    const totalApplicationCommission = parseFloat(app.total_application_commission) || 0;
+
+    let displayAmountForStat = 0;
+    let displayCommissionForStat = 0;
+
+    if (filters.status === 'approved') {
+        displayAmountForStat = approvedAmount;
+        displayCommissionForStat = calculateCommissionFromRate(approvedAmount, app.commission_percentage);
+    } else { // 'disbursed' or 'partially_disbursed'
+        displayAmountForStat = disbursedAmount;
+        // Use the total_application_commission from the API for disbursed/partially_disbursed
+        displayCommissionForStat = totalApplicationCommission;
+    }
+
+    return {
+      amount: acc.amount + displayAmountForStat,
+      commission: acc.commission + displayCommissionForStat,
+      avgWaitDays: acc.avgWaitDays + (filters.status === 'approved' ? getDaysSinceApproval(app.approved_at) : 0)
+    };
+  }, { amount: 0, commission: 0, avgWaitDays: 0 });
+
+  const averageWaitTime = applications.length > 0 && filters.status === 'approved'
+    ? Math.round(totalStats.avgWaitDays / applications.length)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -103,7 +133,8 @@ function DisbursementsListContent() {
         <nav className="-mb-px flex space-x-8">
           {[
             { key: 'approved', label: 'Ready for Disbursement', color: 'blue' },
-            { key: 'disbursed', label: 'Disbursed', color: 'green' }
+            { key: 'disbursed', label: 'Disbursed', color: 'green' },
+            { key: 'partially_disbursed', label: 'Partially Disbursed', color: 'orange' }
           ].map((tab) => (
             <button
               key={tab.key}
@@ -120,7 +151,7 @@ function DisbursementsListContent() {
         </nav>
       </div>
 
-      {/* Statistics Cards - FIXED calculations */}
+      {/* Statistics Cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
@@ -135,10 +166,10 @@ function DisbursementsListContent() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    {filters.status === 'approved' ? 'Ready to Disburse' : 'Total Disbursed'}
+                    {filters.status === 'approved' ? 'Ready to Disburse' : 'Total Loans'}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {applications.length}
+                    {pagination.total || 0}
                   </dd>
                 </dl>
               </div>
@@ -151,19 +182,14 @@ function DisbursementsListContent() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 rounded-md bg-green-500 flex items-center justify-center">
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                   <span className="text-white font-bold text-xl">₹</span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Amount</dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {formatCurrency(applications.reduce((sum, app) => {
-                      const amount = getDisplayAmount(app, filters.status)
-                      return sum + amount
-                    }, 0))}
+                    {formatCurrency(totalStats.amount)}
                   </dd>
                 </dl>
               </div>
@@ -185,10 +211,7 @@ function DisbursementsListContent() {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Commission Payout</dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {formatCurrency(applications.reduce((sum, app) => {
-                      const amount = getDisplayAmount(app, filters.status)
-                      return sum + calculateCommission(amount, app.commission_percentage)
-                    }, 0))}
+                    {formatCurrency(totalStats.commission)}
                   </dd>
                 </dl>
               </div>
@@ -210,11 +233,7 @@ function DisbursementsListContent() {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Avg Wait Time</dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {applications.length > 0 && filters.status === 'approved' ? 
-                      Math.round(applications.reduce((sum, app) => 
-                        sum + getDaysSinceApproval(app.approved_at), 0
-                      ) / applications.length) : 0
-                    } days
+                    {averageWaitTime} days
                   </dd>
                 </dl>
               </div>
@@ -227,7 +246,9 @@ function DisbursementsListContent() {
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            {filters.status === 'approved' ? 'Applications Ready for Disbursement' : 'Disbursed Loans'} ({pagination.total || 0})
+            {filters.status === 'approved' ? 'Applications Ready for Disbursement' :
+             filters.status === 'partially_disbursed' ? 'Partially Disbursed Loans' :
+             'Fully Disbursed Loans'} ({pagination.total || 0})
           </h3>
           
           {loading ? (
@@ -240,8 +261,16 @@ function DisbursementsListContent() {
               {applications.map((app) => {
                 const daysWaiting = getDaysSinceApproval(app.approved_at)
                 const priority = getPriorityLevel(daysWaiting)
-                const displayAmount = getDisplayAmount(app, filters.status)
-                const commissionAmount = calculateCommission(displayAmount, app.commission_percentage)
+
+                const displayAmount = (filters.status === 'approved')
+                    ? (parseFloat(app.approved_amount) || 0)
+                    : (parseFloat(app.disbursed_amount) || 0);
+                
+                // For 'approved', calculate commission based on approved amount
+                // For 'disbursed' or 'partially_disbursed', use the total_application_commission from the API
+                const commissionAmount = (filters.status === 'approved')
+                    ? calculateCommissionFromRate(displayAmount, app.commission_percentage)
+                    : (parseFloat(app.total_application_commission) || 0);
                 
                 return (
                   <div key={app.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
@@ -284,7 +313,7 @@ function DisbursementsListContent() {
                           </div>
                         </div>
 
-                        {/* Financial Details - FIXED */}
+                        {/* Financial Details */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 bg-gray-50 p-4 rounded-md">
                           <div>
                             <span className="text-xs font-medium text-gray-500 uppercase">
@@ -310,7 +339,7 @@ function DisbursementsListContent() {
                           </div>
                         </div>
 
-                        {/* Additional Info - FIXED */}
+                        {/* Additional Info */}
                         <div className="mt-3 flex items-center space-x-4 text-xs text-gray-500">
                           {filters.status === 'approved' ? (
                             <>
@@ -320,14 +349,8 @@ function DisbursementsListContent() {
                           ) : (
                             <>
                               <span>💰 Disbursed on {app.disbursed_at ? formatDate(app.disbursed_at) : 'N/A'}</span>
-                              {app.disbursement_details && (
-                                <span>🏦 {(() => {
-                                  try {
-                                    return JSON.parse(app.disbursement_details).bank_name
-                                  } catch {
-                                    return 'N/A'
-                                  }
-                                })()}</span>
+                              {app.last_disbursed_bank_name && (
+                                <span>🏦 {app.last_disbursed_bank_name}</span>
                               )}
                             </>
                           )}
@@ -354,7 +377,7 @@ function DisbursementsListContent() {
 
                       {/* Actions */}
                       <div className="flex-shrink-0 ml-6">
-                        {filters.status === 'approved' ? (
+                        {filters.status === 'approved' || filters.status === 'partially_disbursed' ? (
                           <div className="flex flex-col space-y-2">
                             <Link
                               href={`/admin/disbursements/${app.id}`}
@@ -375,7 +398,7 @@ function DisbursementsListContent() {
                         ) : (
                           <div className="flex flex-col space-y-2">
                             <div className="text-right">
-                              <span className="text-xs text-gray-500">Disbursed Amount</span>
+                              <span className="text-xs text-gray-500">Total Disbursed</span>
                               <p className="text-lg font-bold text-green-600">
                                 {formatCurrency(displayAmount)}
                               </p>
@@ -451,7 +474,7 @@ function DisbursementsListContent() {
                     Previous
                   </button>
                   
-                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => { // show max 5 page buttons
                     const pageNum = i + 1
                     return (
                       <button
@@ -467,6 +490,10 @@ function DisbursementsListContent() {
                       </button>
                     )
                   })}
+                  {/* Optional: Add ellipsis if many pages */}
+                  {pagination.totalPages > 5 && filters.page < pagination.totalPages - 2 && (
+                    <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
+                  )}
 
                   <button
                     onClick={() => handleFilterChange('page', Math.min(pagination.totalPages, filters.page + 1))}

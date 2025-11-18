@@ -76,7 +76,7 @@ export default function AdminApplicationDetailPage({ params }) {
     )
   }
 
-  const { application, documents = [], commission, logs = [] } = applicationData
+  const { application, documents = [], commission, logs = [], disbursements = [] } = applicationData
 
   const monthlyEMI = application.approved_amount && application.approved_interest_rate && application.approved_tenure_months
     ? calculateEMI(application.approved_amount, application.approved_interest_rate, application.approved_tenure_months)
@@ -108,7 +108,7 @@ export default function AdminApplicationDetailPage({ params }) {
             >
               ← Back to Applications
             </Link>
-            {application.status === 'approved' && (
+            {(application.status === 'approved' || application.status === 'partially_disbursed') && (
               <Link
                 href={`/admin/disbursements/${application.id}`}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
@@ -125,6 +125,7 @@ export default function AdminApplicationDetailPage({ params }) {
           application.status === 'disbursed' ? 'bg-purple-50 border border-purple-200' :
           application.status === 'rejected' ? 'bg-red-50 border border-red-200' :
           application.status === 'verified' ? 'bg-blue-50 border border-blue-200' :
+          application.status === 'partially_disbursed' ? 'bg-orange-50 border border-orange-200' :
           'bg-yellow-50 border border-yellow-200'
         }`}>
           <div className="flex items-center justify-between">
@@ -141,9 +142,10 @@ export default function AdminApplicationDetailPage({ params }) {
                     Approved on {formatDate(application.approved_at)}
                   </p>
                 )}
-                {application.disbursed_at && (
-                  <p className="text-sm text-gray-700">
-                    Disbursed on {formatDate(application.disbursed_at)}
+                {/* Show total disbursed amount if available */}
+                {parseFloat(application.disbursed_amount) > 0 && (
+                  <p className="text-sm text-gray-700 font-semibold">
+                    Total Disbursed: {formatCurrency(application.disbursed_amount)}
                   </p>
                 )}
               </div>
@@ -283,12 +285,14 @@ export default function AdminApplicationDetailPage({ params }) {
                     {application.commission_percentage && (
                       <div className="flex justify-between items-center p-3 bg-purple-50 rounded-md">
                         <div>
-                          <span className="text-sm font-medium text-purple-700">Commission</span>
+                          <span className="text-sm font-medium text-purple-700">Rate</span>
                           <p className="text-xs text-purple-600">{application.commission_percentage}%</p>
                         </div>
                         <div className="text-right">
-                          <span className="text-lg font-bold text-purple-900">
-                            {formatCurrency(commissionAmount)}
+                          <span className="text-xs text-purple-700">Total Earned</span>
+                          {/* Show actual earned commission if present, else estimated */}
+                          <span className="text-lg font-bold text-purple-900 block">
+                            {commission ? formatCurrency(commission.commission_amount) : formatCurrency(commissionAmount)}
                           </span>
                         </div>
                       </div>
@@ -349,52 +353,56 @@ export default function AdminApplicationDetailPage({ params }) {
               </div>
             )}
 
-            {/* Disbursement Details */}
-            {application.status === 'disbursed' && application.disbursement_details && (
-              <div className="bg-green-50 border border-green-200 rounded-lg">
-                <div className="p-6">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="ml-3 flex-1">
-                      <h3 className="text-sm font-medium text-green-800">
-                        Loan Successfully Disbursed
-                      </h3>
-                      <div className="mt-2 text-sm text-green-700">
-                        {(() => {
-                          try {
-                            const details = JSON.parse(application.disbursement_details)
-                            return (
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p><span className="font-medium">Amount:</span> {formatCurrency(application.disbursed_amount)}</p>
-                                  <p><span className="font-medium">Bank:</span> {details.bank_name}</p>
-                                  <p><span className="font-medium">Account:</span> {details.account_number}</p>
+            {/* Disbursement Details Table */}
+            {(application.status === 'disbursed' || application.status === 'partially_disbursed' || disbursements.length > 0) && (
+              <div className="bg-white shadow rounded-lg">
+                <div className="px-4 py-5 sm:p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Disbursement History</h3>
+                  
+                  {disbursements.length > 0 ? (
+                    <div className="flex flex-col gap-4">
+                      {disbursements.map((txn, index) => (
+                        <div key={txn.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                           <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="bg-green-200 rounded-full p-1">
+                                  <svg className="h-4 w-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
                                 </div>
-                                <div>
-                                  <p><span className="font-medium">IFSC:</span> {details.ifsc_code}</p>
-                                  <p><span className="font-medium">Reference:</span> {details.transaction_reference}</p>
-                                  <p><span className="font-medium">Date:</span> {formatDate(application.disbursed_at)}</p>
-                                </div>
-                                {details.remarks && (
-                                  <div className="col-span-2">
-                                    <p><span className="font-medium">Remarks:</span> {details.remarks}</p>
-                                  </div>
-                                )}
+                                <span className="font-semibold text-green-800">Tranche #{disbursements.length - index}</span>
                               </div>
-                            )
-                          } catch (error) {
-                            return (
-                              <p>Disbursement completed on {formatDate(application.disbursed_at)}</p>
-                            )
-                          }
-                        })()}
+                              <span className="text-sm text-green-700">{formatDate(txn.disbursement_date)}</span>
+                           </div>
+                           
+                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <p className="text-green-600 text-xs uppercase tracking-wide">Amount</p>
+                                <p className="font-bold text-gray-900">{formatCurrency(txn.disbursed_amount)}</p>
+                              </div>
+                              <div>
+                                <p className="text-green-600 text-xs uppercase tracking-wide">Bank & Ref</p>
+                                <p className="font-medium text-gray-900">{txn.bank_reference}</p>
+                                <p className="text-gray-500 text-xs">Ref: {txn.reference_number}</p>
+                              </div>
+                              <div>
+                                <p className="text-green-600 text-xs uppercase tracking-wide">Commission</p>
+                                <p className="font-medium text-gray-900">{formatCurrency(txn.connector_commission)}</p>
+                                <span className="text-xs bg-green-200 text-green-800 px-1 rounded">{txn.commission_status}</span>
+                              </div>
+                           </div>
+                        </div>
+                      ))}
+                      
+                      {/* Summary Footer */}
+                      <div className="mt-2 pt-3 border-t border-gray-100 flex justify-between items-center">
+                         <span className="text-sm text-gray-500">Total Disbursed So Far:</span>
+                         <span className="text-lg font-bold text-green-700">{formatCurrency(application.disbursed_amount)}</span>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <p className="text-gray-500 italic">No disbursement records found, though status is disbursed.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -413,7 +421,9 @@ export default function AdminApplicationDetailPage({ params }) {
                   {documents.map((doc, index) => (
                     <div key={index} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium text-gray-900">{doc.document_name || `Document ${index + 1}`}</h4>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {doc.document_name || `Document ${index + 1}`}
+                        </h4>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(doc.verification_status || 'pending')}`}>
                           {doc.verification_status || 'Pending'}
                         </span>
@@ -423,21 +433,29 @@ export default function AdminApplicationDetailPage({ params }) {
                           href={doc.file_path} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm"
+                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
                         >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                           View Document
                         </a>
                       )}
-                      {doc.verified_by_name && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Verified by: {doc.verified_by_name} {doc.verified_by_last_name}
-                        </p>
-                      )}
-                      {doc.rejection_reason && (
-                        <p className="text-xs text-red-600 mt-1">
-                          Reason: {doc.rejection_reason}
-                        </p>
-                      )}
+                      <div className="mt-2 pt-2 border-t border-gray-50">
+                        {doc.verified_by_name && (
+                          <p className="text-xs text-gray-500">
+                            Verified by: {doc.verified_by_name} {doc.verified_by_last_name}
+                          </p>
+                        )}
+                        {doc.rejection_reason && (
+                          <p className="text-xs text-red-600 mt-1">
+                            Reason: {doc.rejection_reason}
+                          </p>
+                        )}
+                         {doc.operator_remarks && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Remark: {doc.operator_remarks}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -475,16 +493,21 @@ export default function AdminApplicationDetailPage({ params }) {
                             <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                               <div>
                                 <p className="text-sm text-gray-500">
-                                  {log.action.replace('_', ' ').toLowerCase()} {log.first_name ? `by ${log.first_name} ${log.last_name}` : ''}
+                                  <span className="font-medium text-gray-900">{log.action.replace(/_/g, ' ')}</span> 
+                                  {log.first_name ? ` by ${log.first_name} ${log.last_name} (${log.role})` : ''}
                                 </p>
                                 {log.new_values && (
-                                  <div className="mt-1 text-xs text-gray-400">
+                                  <div className="mt-1 text-xs text-gray-500 font-mono bg-gray-50 p-1 rounded">
                                     {(() => {
                                       try {
                                         const values = JSON.parse(log.new_values)
-                                        return Object.keys(values).slice(0, 3).join(', ')
+                                        // Show relevant changes nicely
+                                        return Object.entries(values)
+                                          .filter(([key]) => !['password', 'id', 'created_at'].includes(key))
+                                          .map(([key, val]) => `${key}: ${val}`)
+                                          .join(', ')
                                       } catch {
-                                        return ''
+                                        return 'Details unavailable'
                                       }
                                     })()}
                                   </div>

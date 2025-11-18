@@ -8,10 +8,10 @@ const connectionConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  // Remove the problematic options
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  namedPlaceholders: false 
 }
 
 let pool
@@ -22,9 +22,9 @@ async function createConnection() {
       pool = mysql.createPool(connectionConfig)
       
       // Test the connection
-      const connection = await pool.getConnection()
-      //console.log('✅ Database connected successfully')
-      connection.release()
+      const testConnection = await pool.getConnection() // Use a different variable name here
+      console.log('✅ Database connected successfully') 
+      testConnection.release() // Release the test connection
     }
     return pool
   } catch (error) {
@@ -34,58 +34,48 @@ async function createConnection() {
 }
 
 export async function executeQuery(query, params = []) {
+  let connection; // Declare connection in a broader scope
   try {
-    const connection = await createConnection()
+    const dbPool = await createConnection(); // Get the pool
+    connection = await dbPool.getConnection(); // Get a connection from the pool
     
-    // Ensure params is always an array and handle null/undefined values
+    // Ensure params is always an array
     const cleanParams = Array.isArray(params) ? params.map(param => {
-      // Convert undefined to null for MySQL
-      return param === undefined ? null : param
-    }) : []
+      // ONLY convert undefined to null. This should not affect numbers.
+      if (param === undefined) {
+          return null; 
+      }
+      return param;
+    }) : [];
+
+    console.log('🔍 Executing query:', query);
+    console.log('📝 With params (after clean):', cleanParams);
+    console.log('📝 Params types (after clean):', cleanParams.map(p => `${p} (${typeof p})`));
     
-    //console.log('🔍 Executing query:', query)
-    //console.log('📝 With params:', cleanParams)
-    //console.log('📝 Params types:', cleanParams.map(p => typeof p))
-    
-    const [results] = await connection.execute(query, cleanParams)
-    return results
+    const [results] = await connection.execute(query, cleanParams);
+    return results;
   } catch (error) {
-    console.error('Database query error:', error)
-    console.error('Query was:', query)
-    console.error('Params were:', params)
-    throw new Error(`Database query failed: ${error.message}`)
+    console.error('Database query error:', error);
+    console.error('Query was:', query);
+    console.error('Params were (original):', params);
+    console.error('Full database error object:', error); 
+    throw new Error(`Database query failed: ${error.message}`);
+  } finally {
+    if (connection) { // Only release if a connection was successfully obtained
+      connection.release();
+    }
   }
 }
 
-// Alternative query method that uses string interpolation for LIMIT/OFFSET
-export async function executeQueryWithLimit(baseQuery, params = [], limit = 10, offset = 0) {
-  try {
-    const connection = await createConnection()
-    
-    // Clean the base parameters
-    const cleanParams = Array.isArray(params) ? params.map(param => {
-      return param === undefined ? null : param
-    }) : []
-    
-    // Add LIMIT and OFFSET directly to the query string to avoid parameter issues
-    const fullQuery = `${baseQuery} LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`
-    
-    //console.log('🔍 Executing query with limit:', fullQuery)
-    //console.log('📝 With params:', cleanParams)
-    
-    const [results] = await connection.execute(fullQuery, cleanParams)
-    return results
-  } catch (error) {
-    console.error('Database query error:', error)
-    throw new Error(`Database query failed: ${error.message}`)
-  }
-}
+// executeQueryWithLimit (if you keep it)
+// And executeTransaction (also ensure connection is declared outside the try for cleanup)
 
 export async function executeTransaction(queries) {
-  const connection = await createConnection()
-  const conn = await connection.getConnection()
+  const dbPool = await createConnection() // Get the pool
+  let conn; // Declare conn in a broader scope
   
   try {
+    conn = await dbPool.getConnection() // Get a connection from the pool
     await conn.beginTransaction()
     
     const results = []
@@ -101,12 +91,17 @@ export async function executeTransaction(queries) {
     await conn.commit()
     return results
   } catch (error) {
-    await conn.rollback()
+    if (conn) { // Only rollback if a connection was obtained
+      await conn.rollback()
+    }
     console.error('Transaction error:', error)
     throw error
   } finally {
-    conn.release()
+    if (conn) { // Only release if a connection was obtained
+      conn.release()
+    }
   }
 }
+
 
 export default createConnection

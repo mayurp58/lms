@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
       )
     }
 
-    // Get application details with all related information
+    // 1. Get Main Application Details
     const applicationQuery = `
       SELECT 
         la.id, la.application_number, la.requested_amount, la.approved_amount, 
@@ -60,37 +60,60 @@ export async function GET(request, { params }) {
 
     const application = applicationResult[0]
 
-    // Get customer documents
+    // 2. Get Customer Documents (Joined with Document Types for names)
     const documentsQuery = `
       SELECT 
         cd.id, cd.document_type_id, cd.file_path, cd.verification_status,
-        cd.verified_at, cd.operator_remarks,
+        cd.verified_at, cd.operator_remarks, cd.rejection_reason,
+        dt.name as document_name,
         up.first_name as verified_by_name, up.last_name as verified_by_last_name
       FROM customer_documents cd
+      JOIN document_types dt ON cd.document_type_id = dt.id
       LEFT JOIN users u ON cd.verified_by = u.id
       LEFT JOIN user_profiles up ON u.id = up.user_id
       WHERE cd.loan_application_id = ?
       ORDER BY cd.uploaded_at DESC
     `
-
     const documents = await executeQuery(documentsQuery, [id])
 
-    // Get commission record if exists
+    // 3. Get Commission Record
     const commissionQuery = `
       SELECT cr.*, cr.status as commission_status
       FROM commission_records cr
       WHERE cr.loan_application_id = ?
     `
-
     const commissionResult = await executeQuery(commissionQuery, [id])
     const commission = commissionResult.length > 0 ? commissionResult[0] : null
+
+    // 4. Get System Logs (History)
+    const logsQuery = `
+      SELECT 
+        sl.action, sl.created_at, sl.new_values,
+        up.first_name, up.last_name, u.role
+      FROM system_logs sl
+      LEFT JOIN users u ON sl.user_id = u.id
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      WHERE (sl.entity_type = 'loan_application' AND sl.entity_id = ?)
+      ORDER BY sl.created_at DESC
+    `
+    const logs = await executeQuery(logsQuery, [id])
+
+    // 5. Get Actual Disbursement Records (Source of Truth)
+    const disbursementsQuery = `
+      SELECT * FROM loan_disbursements 
+      WHERE loan_application_id = ?
+      ORDER BY created_at DESC
+    `
+    const disbursements = await executeQuery(disbursementsQuery, [id])
 
     return NextResponse.json({
       success: true,
       data: {
         application,
         documents,
-        commission
+        commission,
+        logs,
+        disbursements
       }
     })
 
