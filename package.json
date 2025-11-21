@@ -8,7 +8,9 @@
     "start": "PORT=3002 next start",
     "lint": "eslint",
     "init-db": "node scripts/init-db.js",
-    "setup-dirs": "node scripts/setup-directories.js"
+    "setup-dirs": "node scripts/setup-directories.js",
+    "setup": "npm run setup-dirs && npm run init-db",
+    "postinstall": "npm run setup-dirs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
