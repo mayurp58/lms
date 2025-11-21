@@ -1,0 +1,24 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main  # this means the action runs when you push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest  # GitHub gives you a temporary Linux server
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2  # Checks out your code (if needed, optional here)
+
+      - name: SSH & Deploy
+        uses: appleboy/ssh-action@master  # GitHub action for SSH
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}       # Your VPS IP
+          username: ${{ secrets.HOSTINGER_USERNAME }}   # VPS login user (e.g., root or ubuntu)
+          key: ${{ secrets.HOSTINGER_KEY }}     # Your private SSH key
+          script: |
+            cd /home/ganeshrice-gcfinanceweb/htdocs/lms
+            ./deploy.sh
