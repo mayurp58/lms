@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import { executeQuery } from './mysql.js'
 
 const createTables = async () => {
