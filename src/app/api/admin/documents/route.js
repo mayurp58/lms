@@ -3,11 +3,11 @@ import { executeQuery } from '@/lib/db/mysql'
 
 export async function GET(request) {
   try {
-    const {searchParams} = new URL(request.url)
+    const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || '1';
 
     const documents = await executeQuery(
-      'SELECT id, name, description, is_required FROM document_types where is_active = ? ORDER BY name ASC',
+      'SELECT id, name, description, is_required, is_pdd FROM document_types where is_active = ? ORDER BY name ASC',
       [status]
     )
 
@@ -27,28 +27,29 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-      const body = await request.json()
+    const body = await request.json()
 
-      const {
-        name,
-        description,
-        is_required
-      } = body
-      await executeQuery(
-          'Insert Into document_types (name,description,is_required) VALUES (?,?,?)',
-          [name, description, is_required]
-      )
+    const {
+      name,
+      description,
+      is_required,
+      is_pdd
+    } = body
+    await executeQuery(
+      'Insert Into document_types (name,description,is_required,is_pdd) VALUES (?,?,?,?)',
+      [name, description, is_required, is_pdd || false]
+    )
 
-      return NextResponse.json({
-          success: true,
-          message: 'Document inserted successfully'
-      })
+    return NextResponse.json({
+      success: true,
+      message: 'Document inserted successfully'
+    })
   }
   catch (error) {
-      console.error('Update document error:', error)
-      return NextResponse.json(
-        { success: false, message: 'Failed to update bank' },
-        { status: 500 }
-      )
+    console.error('Update document error:', error)
+    return NextResponse.json(
+      { success: false, message: 'Failed to update bank' },
+      { status: 500 }
+    )
   }
 }

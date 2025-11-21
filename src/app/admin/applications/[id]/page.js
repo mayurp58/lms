@@ -38,8 +38,8 @@ export default function AdminApplicationDetailPage({ params }) {
   const calculateEMI = (amount, rate, tenure) => {
     if (!amount || !rate || !tenure) return 0
     const monthlyRate = rate / (12 * 100)
-    const emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
-                (Math.pow(1 + monthlyRate, tenure) - 1)
+    const emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, tenure)) /
+      (Math.pow(1 + monthlyRate, tenure) - 1)
     return Math.round(emi)
   }
 
@@ -116,18 +116,25 @@ export default function AdminApplicationDetailPage({ params }) {
                 💰 Process Disbursement
               </Link>
             )}
+            {application.status?.toLowerCase() === 'disbursed' && (
+              <Link
+                href={`/admin/post-disbursement?applicationId=${application.id}`}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                📋 PDD Completion
+              </Link>
+            )}
           </div>
         </div>
 
         {/* Status Banner */}
-        <div className={`rounded-md p-4 ${
-          application.status === 'approved' ? 'bg-green-50 border border-green-200' :
+        <div className={`rounded-md p-4 ${application.status === 'approved' ? 'bg-green-50 border border-green-200' :
           application.status === 'disbursed' ? 'bg-purple-50 border border-purple-200' :
-          application.status === 'rejected' ? 'bg-red-50 border border-red-200' :
-          application.status === 'verified' ? 'bg-blue-50 border border-blue-200' :
-          application.status === 'partially_disbursed' ? 'bg-orange-50 border border-orange-200' :
-          'bg-yellow-50 border border-yellow-200'
-        }`}>
+            application.status === 'rejected' ? 'bg-red-50 border border-red-200' :
+              application.status === 'verified' ? 'bg-blue-50 border border-blue-200' :
+                application.status === 'partially_disbursed' ? 'bg-orange-50 border border-orange-200' :
+                  'bg-yellow-50 border border-yellow-200'
+          }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(application.status)}`}>
@@ -160,11 +167,10 @@ export default function AdminApplicationDetailPage({ params }) {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm capitalize ${
-                  activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm capitalize ${activeTab === tab
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 {tab}
               </button>
@@ -188,7 +194,7 @@ export default function AdminApplicationDetailPage({ params }) {
                         {formatCurrency(application.requested_amount)}
                       </span>
                     </div>
-                    
+
                     {application.approved_amount && (
                       <div className="flex justify-between items-center p-3 bg-green-50 rounded-md">
                         <span className="text-sm font-medium text-green-700">Approved Amount</span>
@@ -281,7 +287,7 @@ export default function AdminApplicationDetailPage({ params }) {
                       </p>
                       <p className="text-xs text-gray-500">Agent Code: {application.agent_code}</p>
                     </div>
-                    
+
                     {application.commission_percentage && (
                       <div className="flex justify-between items-center p-3 bg-purple-50 rounded-md">
                         <div>
@@ -300,7 +306,7 @@ export default function AdminApplicationDetailPage({ params }) {
 
                     {commission && (
                       <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                        Commission Status: 
+                        Commission Status:
                         <span className={`ml-1 font-medium ${commission.status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`}>
                           {commission.status}
                         </span>
@@ -358,46 +364,46 @@ export default function AdminApplicationDetailPage({ params }) {
               <div className="bg-white shadow rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Disbursement History</h3>
-                  
+
                   {disbursements.length > 0 ? (
                     <div className="flex flex-col gap-4">
                       {disbursements.map((txn, index) => (
                         <div key={txn.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
-                           <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div className="bg-green-200 rounded-full p-1">
-                                  <svg className="h-4 w-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </div>
-                                <span className="font-semibold text-green-800">Tranche #{disbursements.length - index}</span>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="bg-green-200 rounded-full p-1">
+                                <svg className="h-4 w-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
                               </div>
-                              <span className="text-sm text-green-700">{formatDate(txn.disbursement_date)}</span>
-                           </div>
-                           
-                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                              <div>
-                                <p className="text-green-600 text-xs uppercase tracking-wide">Amount</p>
-                                <p className="font-bold text-gray-900">{formatCurrency(txn.disbursed_amount)}</p>
-                              </div>
-                              <div>
-                                <p className="text-green-600 text-xs uppercase tracking-wide">Bank & Ref</p>
-                                <p className="font-medium text-gray-900">{txn.bank_reference}</p>
-                                <p className="text-gray-500 text-xs">Ref: {txn.reference_number}</p>
-                              </div>
-                              <div>
-                                <p className="text-green-600 text-xs uppercase tracking-wide">Commission</p>
-                                <p className="font-medium text-gray-900">{formatCurrency(txn.connector_commission)}</p>
-                                <span className="text-xs bg-green-200 text-green-800 px-1 rounded">{txn.commission_status}</span>
-                              </div>
-                           </div>
+                              <span className="font-semibold text-green-800">Tranche #{disbursements.length - index}</span>
+                            </div>
+                            <span className="text-sm text-green-700">{formatDate(txn.disbursement_date)}</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="text-green-600 text-xs uppercase tracking-wide">Amount</p>
+                              <p className="font-bold text-gray-900">{formatCurrency(txn.disbursed_amount)}</p>
+                            </div>
+                            <div>
+                              <p className="text-green-600 text-xs uppercase tracking-wide">Bank & Ref</p>
+                              <p className="font-medium text-gray-900">{txn.bank_reference}</p>
+                              <p className="text-gray-500 text-xs">Ref: {txn.reference_number}</p>
+                            </div>
+                            <div>
+                              <p className="text-green-600 text-xs uppercase tracking-wide">Commission</p>
+                              <p className="font-medium text-gray-900">{formatCurrency(txn.connector_commission)}</p>
+                              <span className="text-xs bg-green-200 text-green-800 px-1 rounded">{txn.commission_status}</span>
+                            </div>
+                          </div>
                         </div>
                       ))}
-                      
+
                       {/* Summary Footer */}
                       <div className="mt-2 pt-3 border-t border-gray-100 flex justify-between items-center">
-                         <span className="text-sm text-gray-500">Total Disbursed So Far:</span>
-                         <span className="text-lg font-bold text-green-700">{formatCurrency(application.disbursed_amount)}</span>
+                        <span className="text-sm text-gray-500">Total Disbursed So Far:</span>
+                        <span className="text-lg font-bold text-green-700">{formatCurrency(application.disbursed_amount)}</span>
                       </div>
                     </div>
                   ) : (
@@ -429,9 +435,9 @@ export default function AdminApplicationDetailPage({ params }) {
                         </span>
                       </div>
                       {doc.file_path && (
-                        <a 
-                          href={doc.file_path} 
-                          target="_blank" 
+                        <a
+                          href={doc.file_path}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
                         >
@@ -450,7 +456,7 @@ export default function AdminApplicationDetailPage({ params }) {
                             Reason: {doc.rejection_reason}
                           </p>
                         )}
-                         {doc.operator_remarks && (
+                        {doc.operator_remarks && (
                           <p className="text-xs text-gray-500 mt-1">
                             Remark: {doc.operator_remarks}
                           </p>
@@ -493,7 +499,7 @@ export default function AdminApplicationDetailPage({ params }) {
                             <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                               <div>
                                 <p className="text-sm text-gray-500">
-                                  <span className="font-medium text-gray-900">{log.action.replace(/_/g, ' ')}</span> 
+                                  <span className="font-medium text-gray-900">{log.action.replace(/_/g, ' ')}</span>
                                   {log.first_name ? ` by ${log.first_name} ${log.last_name} (${log.role})` : ''}
                                 </p>
                                 {log.new_values && (

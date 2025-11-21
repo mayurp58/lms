@@ -90,7 +90,7 @@ export default function AdminApplicationsPage() {
       const params = new URLSearchParams(filters)
       const res = await fetch(`/api/admin/applications/export?${params}`)
       const blob = await res.blob()
-      
+
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -251,7 +251,7 @@ export default function AdminApplicationsPage() {
               Page {pagination.page} of {pagination.totalPages}
             </div>
           </div>
-          
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -353,6 +353,14 @@ export default function AdminApplicationsPage() {
                             Disburse
                           </Link>
                         )}
+                        {app.status?.toLowerCase() === 'disbursed' && (
+                          <Link
+                            href={`/admin/post-disbursement?applicationId=${app.id}`}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            PDD Completion
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -409,11 +417,10 @@ export default function AdminApplicationsPage() {
                         <button
                           key={pageNum}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            pageNum === pagination.page
-                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                          }`}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${pageNum === pagination.page
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
                         >
                           {pageNum}
                         </button>

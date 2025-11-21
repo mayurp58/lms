@@ -25,7 +25,7 @@ export default function OperatorApplicationsPage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      
+
       // Add each parameter only once
       if (filters.status && filters.status !== 'all') {
         params.append('status', filters.status)
@@ -35,12 +35,12 @@ export default function OperatorApplicationsPage() {
       }
       params.append('page', filters.page.toString())
       params.append('limit', filters.limit.toString())
-  
+
       //console.log('Fetching with params:', params.toString())
-  
+
       const res = await fetch(`/api/operator/applications?${params}`)
       const data = await res.json()
-  
+
       if (data.success) {
         setApplications(data.data.applications)
         setStats(data.data.stats)
@@ -53,7 +53,7 @@ export default function OperatorApplicationsPage() {
     }
     setLoading(false)
   }
-  
+
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }))
@@ -174,7 +174,7 @@ export default function OperatorApplicationsPage() {
                 <option value="rejected">Rejected</option>
                 <option value="disbursed">Disbursed</option>
                 <option value="document_rejected">Document Rejected</option>
-                
+
               </select>
             </div>
 
@@ -226,7 +226,7 @@ export default function OperatorApplicationsPage() {
               Page {pagination.page || 1} of {pagination.totalPages || 1}
             </div>
           </div>
-          
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -237,7 +237,7 @@ export default function OperatorApplicationsPage() {
               {applications.map((app) => {
                 const daysOld = getDaysOld(app.created_at)
                 const priority = getPriorityLevel(daysOld, app.status)
-                
+
                 return (
                   <div key={app.id} className="p-6 hover:bg-gray-50">
                     <div className="flex items-start justify-between">
@@ -306,7 +306,7 @@ export default function OperatorApplicationsPage() {
                               <span>{Math.round(((app.verified_documents || 0) / app.document_count) * 100)}%</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
+                              <div
                                 className="bg-green-500 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${((app.verified_documents || 0) / app.document_count) * 100}%` }}
                               ></div>
@@ -351,16 +351,25 @@ export default function OperatorApplicationsPage() {
                               onClick={() => handleStatusUpdate(app.id, 'verified', 'All documents verified')}
                               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                             >
-                             ✅ Mark Verified
+                              ✅ Mark Verified
                             </button>
                           )}
-                          {(app.status === 'document_requested' ) && (
+                          {(app.status === 'document_requested') && (
                             <button
                               onClick={() => handleStatusUpdate(app.id, 'sent_to_bankers', 'All documents verified')}
                               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                             >
                               ✅ Document Verified
                             </button>
+                          )}
+
+                          {app.status?.toLowerCase() === 'disbursed' && (
+                            <Link
+                              href={`/operator/post-disbursement?applicationId=${app.id}`}
+                              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                            >
+                              📋 PDD Completion
+                            </Link>
                           )}
                         </div>
                       </div>
@@ -417,18 +426,17 @@ export default function OperatorApplicationsPage() {
                     >
                       Previous
                     </button>
-                    
+
                     {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                       const pageNum = i + 1
                       return (
                         <button
                           key={pageNum}
                           onClick={() => handleFilterChange('page', pageNum)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            filters.page === pageNum
-                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                          }`}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${filters.page === pageNum
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
                         >
                           {pageNum}
                         </button>

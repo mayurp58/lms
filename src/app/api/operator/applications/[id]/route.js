@@ -73,6 +73,7 @@ export async function GET(request, { params }) {
         cd.verified_at, 
         cd.rejection_reason,
         cd.uploaded_at,
+        dt.is_pdd,
         up.first_name as verified_by_name, 
         up.last_name as verified_by_last_name
       FROM customer_documents cd
@@ -175,21 +176,21 @@ export async function GET(request, { params }) {
     WHERE ad.loan_application_id = ?
     ORDER BY ad.sent_at DESC
   `
-  
 
-const distributions = await executeQuery(distributionsQuery, [id])
 
-// Update the return statement to include distributions
-return NextResponse.json({
-success: true,
-data: {
-  application,
-  documents,
-  offers,
-  distributions, // Add this line
-  logs
-}
-})
+    const distributions = await executeQuery(distributionsQuery, [id])
+
+    // Update the return statement to include distributions
+    return NextResponse.json({
+      success: true,
+      data: {
+        application,
+        documents,
+        offers,
+        distributions, // Add this line
+        logs
+      }
+    })
 
 
   } catch (error) {

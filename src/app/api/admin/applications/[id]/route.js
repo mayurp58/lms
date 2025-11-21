@@ -64,8 +64,8 @@ export async function GET(request, { params }) {
     const documentsQuery = `
       SELECT 
         cd.id, cd.document_type_id, cd.file_path, cd.verification_status,
-        cd.verified_at, cd.operator_remarks, cd.rejection_reason,
-        dt.name as document_name,
+        cd.verified_at, cd.operator_remarks, cd.rejection_reason, cd.uploaded_at,
+        dt.name as document_name, dt.is_pdd,
         up.first_name as verified_by_name, up.last_name as verified_by_last_name
       FROM customer_documents cd
       JOIN document_types dt ON cd.document_type_id = dt.id

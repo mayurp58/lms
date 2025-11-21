@@ -7,7 +7,7 @@ export async function GET(request, { params }) {
     const { id } = await params
 
     const result = await executeQuery(
-      'SELECT id, name, description, is_required FROM document_types WHERE id = ?',
+      'SELECT id, name, description, is_required, is_pdd FROM document_types WHERE id = ?',
       [id]
     )
 
@@ -36,11 +36,11 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, description, is_required } = body
+    const { name, description, is_required, is_pdd } = body
 
     await executeQuery(
-      'UPDATE document_types SET name = ?, description = ?, is_required = ? WHERE id = ?',
-      [name, description, is_required ? 1 : 0, id]
+      'UPDATE document_types SET name = ?, description = ?, is_required = ?, is_pdd = ? WHERE id = ?',
+      [name, description, is_required ? 1 : 0, is_pdd ? 1 : 0, id]
     )
 
     return NextResponse.json({

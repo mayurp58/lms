@@ -121,10 +121,16 @@ const createTables = async () => {
       company_name VARCHAR(200),
       work_experience_years INT,
       existing_loans_amount DECIMAL(15,2) DEFAULT 0.00,
-      status ENUM('submitted', 'under_verification', 'verified', 'sent_to_bankers', 'approved', 'rejected', 'disbursed') DEFAULT 'submitted',
+      status ENUM('submitted', 'under_verification', 'verified', 'sent_to_bankers', 'approved', 'rejected', 'disbursed', 'document_rejected', 'document_requested', 'partially_disbursed') DEFAULT 'submitted',
       cibil_score INT,
       cibil_report_url VARCHAR(255),
       operator_remarks TEXT,
+      special_instructions TEXT,
+      vehicle_reg_number VARCHAR(15) DEFAULT NULL,
+      vehicle_valuation INT DEFAULT NULL,
+      vehicle_km INT DEFAULT NULL,
+      vehicle_owner INT DEFAULT NULL,
+      comission_amount VARCHAR(10) DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_application_number (application_number),
@@ -141,6 +147,7 @@ const createTables = async () => {
       is_required BOOLEAN DEFAULT true,
       max_file_size_mb INT DEFAULT 5,
       allowed_formats VARCHAR(255) DEFAULT 'pdf,jpg,jpeg,png',
+      is_active INT NOT NULL DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_required (is_required)
     )`,
@@ -153,22 +160,23 @@ const createTables = async () => {
     document_type_id INT NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     file_path VARCHAR(500) NOT NULL,
-    file_size_kb INT NOT NULL,
+    file_size_kb INT DEFAULT NULL,
     verification_status ENUM('pending', 'verified', 'rejected') DEFAULT 'pending',
     operator_remarks TEXT,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     verified_at TIMESTAMP NULL,
     verified_by INT NULL,
+    rejection_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_loan_application (loan_application_id),
     INDEX idx_customer (customer_id),
     INDEX idx_document_type (document_type_id),
-    INDEX idx_verification_status (verification_status),
+    INDEX idx_verification_status (verification_status)
   )`,
 
     // Banks table
-    `CREATE TABLE banks (
+    `CREATE TABLE IF NOT EXISTS banks (
       id INT PRIMARY KEY AUTO_INCREMENT,
       name VARCHAR(100) NOT NULL,
       code VARCHAR(20) UNIQUE NOT NULL,
@@ -187,6 +195,11 @@ const createTables = async () => {
       id INT PRIMARY KEY AUTO_INCREMENT,
       user_id INT NOT NULL,
       bank_id INT NOT NULL,
+      branch VARCHAR(255) NOT NULL,
+      branch_code VARCHAR(50) NOT NULL,
+      city VARCHAR(50) NOT NULL,
+      state VARCHAR(50) NOT NULL,
+      pincode INT NOT NULL,
       employee_id VARCHAR(50),
       designation VARCHAR(100),
       department VARCHAR(100),
@@ -199,10 +212,11 @@ const createTables = async () => {
     )`,
 
     //application distributions
-    `CREATE TABLE application_distributions (
+    `CREATE TABLE IF NOT EXISTS application_distributions (
         id INT PRIMARY KEY AUTO_INCREMENT,
         loan_application_id INT NOT NULL,
         bank_id INT NOT NULL,
+        banker_user_id INT NOT NULL,
         operator_user_id INT NOT NULL,
         
         status ENUM('sent', 'viewed', 'offer_received', 'declined') DEFAULT 'sent',
@@ -211,9 +225,9 @@ const createTables = async () => {
         response_due_date DATETIME NOT NULL,
         
         notes TEXT
-    )`
+    )`,
     // Loan offers table
-    `CREATE TABLE loan_offers (
+    `CREATE TABLE IF NOT EXISTS loan_offers (
         id INT PRIMARY KEY AUTO_INCREMENT,
         loan_application_id INT NOT NULL,
         bank_id INT NOT NULL,
@@ -318,12 +332,45 @@ const createTables = async () => {
     INDEX idx_connector (connector_id),
     INDEX idx_loan_application (loan_application_id),
     INDEX idx_status (status)
-  )`
+  )`,
+    // Cities table
+    `CREATE TABLE IF NOT EXISTS cities (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(100) NOT NULL,
+      state VARCHAR(100) NOT NULL,
+      pincode VARCHAR(6) NOT NULL
+    )`,
+    // RTO Agents table
+    `CREATE TABLE IF NOT EXISTS rto_agents (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(100) NOT NULL,
+      phone VARCHAR(20) NOT NULL,
+      city VARCHAR(100) NOT NULL,
+      is_active TINYINT(1) DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+    // Post Disbursement Cases table
+    `CREATE TABLE IF NOT EXISTS post_disbursement_cases (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      loan_application_id INT NOT NULL UNIQUE,
+      rto_agent_id INT DEFAULT NULL,
+      status ENUM('pending', 'agent_assigned', 'rto_process_started', 'documents_pending', 'completed') DEFAULT 'pending',
+      rc_number VARCHAR(50) DEFAULT NULL,
+      rc_status ENUM('pending', 'received', 'handed_over') DEFAULT 'pending',
+      remarks TEXT,
+      assigned_at TIMESTAMP NULL DEFAULT NULL,
+      completed_at TIMESTAMP NULL DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_loan_application_id (loan_application_id),
+      INDEX idx_rto_agent_id (rto_agent_id)
+    )`
   ]
 
   try {
     //console.log('🚀 Starting database initialization...')
-    
+
     for (let i = 0; i < tables.length; i++) {
       await executeQuery(tables[i])
       //console.log(`✅ Table ${i + 1}/${tables.length} created successfully`)
@@ -331,9 +378,9 @@ const createTables = async () => {
 
     //console.log('📦 Creating initial data...')
     await insertInitialData()
-    
+
     //console.log('✅ Database initialization completed successfully!')
-    
+
   } catch (error) {
     console.error('❌ Database initialization failed:', error)
     throw error
@@ -354,6 +401,11 @@ const insertInitialData = async () => {
     ['Employment Certificate', 'Employment verification letter', false, 15],
     ['Business Registration', 'Business license or registration', false, 15],
     ['Address Proof', 'Utility bill or rent agreement', true, 15],
+    ['RC Copy', 'Vehicle Registration Certificate', false, 5],
+    ['Insurance Policy', 'Vehicle Insurance Policy', false, 5],
+    ['RC Smart Card', 'Vehicle Registration Certificate Copy', false, 5],
+    ['RTO Receipt', 'Tax or Fee Receipt from RTO', false, 5],
+    ['Loan Closure Letter', 'Bank NOC or Closure Letter', false, 5]
   ]
 
   for (const docType of documentTypes) {
@@ -367,9 +419,10 @@ const insertInitialData = async () => {
   const loanCategories = [
     ['Personal Loan', 'Unsecured personal loans', 25000.00, 2000000.00, 10.50, 24.00, 84],
     ['Home Loan', 'Secured home loans', 500000.00, 50000000.00, 8.50, 12.00, 360],
-    ['Car Loan', 'Vehicle financing', 100000.00, 5000000.00, 7.50, 15.00, 84],
+    ['Auto Loan', 'Vehicle financing', 100000.00, 5000000.00, 7.50, 15.00, 84],
     ['Business Loan', 'Loans for business purposes', 50000.00, 10000000.00, 11.00, 20.00, 120],
-    ['Education Loan', 'Higher education financing', 50000.00, 7500000.00, 9.50, 15.00, 180]
+    ['Education Loan', 'Higher education financing', 50000.00, 7500000.00, 9.50, 15.00, 180],
+    ['Used Auto Loan', 'Vehicle financing for used vehicles', 100000.00, 5000000.00, 7.50, 15.00, 84]
   ]
 
   for (const category of loanCategories) {

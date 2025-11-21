@@ -19,15 +19,20 @@ export default function DashboardLayout({ children, requiredRole }) {
 
         if (data.success) {
           setUser(data.user)
-          
+
+
           // Super admin can access everything
           if (requiredRole && data.user.role !== 'super_admin') {
-            if (requiredRole === 'admin' && !['admin', 'super_admin'].includes(data.user.role)) {
-              router.push('/unauthorized')
-              return
-            } else if (requiredRole !== 'admin' && data.user.role !== requiredRole) {
-              router.push('/unauthorized')
-              return
+            // Handle requiredRole as array or string
+            const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+
+            // Check if user's role is in the allowed roles
+            if (!allowedRoles.includes(data.user.role)) {
+              // Special case: admin role can also access 'admin' required pages
+              if (!(allowedRoles.includes('admin') && data.user.role === 'admin')) {
+                router.push('/unauthorized')
+                return
+              }
             }
           }
         } else {
@@ -167,9 +172,8 @@ export default function DashboardLayout({ children, requiredRole }) {
       </header>
 
       {/* Sidebar */}
-      <aside className={`fixed top-16 left-0 z-30 h-[calc(100vh-4rem)] w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0`}>
+      <aside className={`fixed top-16 left-0 z-30 h-[calc(100vh-4rem)] w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:translate-x-0`}>
         <div className="h-full flex flex-col">
           <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             {navItems.map((item) => {
@@ -178,11 +182,10 @@ export default function DashboardLayout({ children, requiredRole }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isActive
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <span className="text-lg">{item.icon}</span>
                   <span>{item.name}</span>
@@ -218,9 +221,8 @@ export default function DashboardLayout({ children, requiredRole }) {
       </aside>
 
       {/* Main Content */}
-      <main className={`pt-16 transition-all duration-300 ease-in-out ${
-        sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
-      }`}>
+      <main className={`pt-16 transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
+        }`}>
         <div className="p-6">
           {children}
         </div>

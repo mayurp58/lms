@@ -16,9 +16,10 @@ export default function CreateDocumentsPage() {
     name: '',
     description: '',
     is_required: false,
+    is_pdd: false,
   })
 
- 
+
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -67,7 +68,7 @@ export default function CreateDocumentsPage() {
     )
   }
 
- 
+
 
   return (
     <DashboardLayout requiredRole="super_admin">
@@ -101,9 +102,8 @@ export default function CreateDocumentsPage() {
                     onChange={handleChange}
                     required
                     placeholder="Enter document name"
-                    className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${
-                      errors.name ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                    className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${errors.name ? 'border-red-300' : 'border-gray-300'
+                      } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                   />
                   {errors.name && (
                     <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -121,9 +121,8 @@ export default function CreateDocumentsPage() {
                     onChange={handleChange}
                     placeholder="Enter description"
                     rows={3}
-                    className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${
-                      errors.description ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                    className={`mt-1 block w-full text-gray-900 px-3 py-2 border ${errors.description ? 'border-red-300' : 'border-gray-300'
+                      } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                   />
                   {errors.description && (
                     <p className="mt-1 text-sm text-red-600">
@@ -164,6 +163,42 @@ export default function CreateDocumentsPage() {
                   {errors.is_required && (
                     <p className="mt-1 text-sm text-red-600">
                       {errors.is_required}
+                    </p>
+                  )}
+                </div>
+
+                {/* Is PDD */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Is PDD Document *
+                  </label>
+                  <div className="mt-2 flex items-center space-x-6">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="is_pdd"
+                        value="true"
+                        checked={formData.is_pdd === true}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Yes</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="is_pdd"
+                        value="false"
+                        checked={formData.is_pdd === false}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">No</span>
+                    </label>
+                  </div>
+                  {errors.is_pdd && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.is_pdd}
                     </p>
                   )}
                 </div>

@@ -39,6 +39,9 @@ export default function PostDisbursementPage() {
             if (foundCase) {
                 setSelectedCase(foundCase)
                 setIsModalOpen(true)
+                setFile(null)
+                setSelectedDocType('')
+                fetchDocuments(foundCase.id)
             }
         }
     }, [cases, applicationIdParam])
@@ -83,11 +86,11 @@ export default function PostDisbursementPage() {
 
     const fetchDocuments = async (applicationId) => {
         try {
-            const res = await fetch(`/api/admin/applications/${applicationId}`)
+            const res = await fetch(`/api/operator/applications/${applicationId}`)
             const data = await res.json()
             if (data.success) {
-                // Filter only PDD documents
-                const pddDocs = (data.data.documents || []).filter(doc => doc.is_pdd)
+                // Filter only PDD documents (is_pdd is truthy - handles 1, true, etc.)
+                const pddDocs = (data.data.documents || []).filter(doc => doc.is_pdd == 1 || doc.is_pdd === true)
                 setDocuments(pddDocs)
             }
         } catch (error) {
@@ -203,7 +206,7 @@ export default function PostDisbursementPage() {
     }
 
     return (
-        <DashboardLayout requiredRole="admin">
+        <DashboardLayout requiredRole="operator">
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
                     <h1 className="text-2xl font-bold text-gray-900">Post Disbursement Operations</h1>
