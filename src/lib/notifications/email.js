@@ -1,7 +1,8 @@
+/*
 import nodemailer from 'nodemailer'
 
 // Email configuration
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: process.env.SMTP_PORT || 587,
   secure: false,
@@ -172,7 +173,7 @@ export async function sendEmail(templateName, recipientEmail, data) {
     }
 
     const template = templates[templateName](data)
-    
+
     const mailOptions = {
       from: `"Loan Management System" <${process.env.SMTP_USER}>`,
       to: recipientEmail,
@@ -182,7 +183,7 @@ export async function sendEmail(templateName, recipientEmail, data) {
 
     const info = await transporter.sendMail(mailOptions)
     //console.log('✅ Email sent:', { to: recipientEmail, template: templateName, messageId: info.messageId })
-    
+
     return { success: true, messageId: info.messageId }
   } catch (error) {
     console.error('❌ Email sending failed:', error)
@@ -193,7 +194,7 @@ export async function sendEmail(templateName, recipientEmail, data) {
 // Batch email sending
 export async function sendBulkEmails(templateName, recipients, data) {
   const results = []
-  
+
   for (const recipient of recipients) {
     const result = await sendEmail(templateName, recipient.email, {
       ...data,
@@ -201,6 +202,7 @@ export async function sendBulkEmails(templateName, recipients, data) {
     })
     results.push({ email: recipient.email, ...result })
   }
-  
+
   return results
 }
+*/

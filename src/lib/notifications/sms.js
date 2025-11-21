@@ -1,3 +1,4 @@
+/*
 // SMS service using Twilio or any SMS provider
 import twilio from 'twilio'
 
@@ -69,3 +70,4 @@ export async function sendBulkSMS(templateName, recipients, data) {
   
   return results
 }
+*/
