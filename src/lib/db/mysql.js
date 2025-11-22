@@ -1,24 +1,24 @@
 import mysql from 'mysql2/promise'
 
-const connectionConfig = {
-  host: process.env.DATABASE_HOST,
-  user: process.env.DATABASE_USER,
-  password: process.env.DATABASE_PASSWORD,
-  database: process.env.DATABASE_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  namedPlaceholders: false
-}
-
 let pool
 
 async function createConnection() {
   try {
     if (!pool) {
+      // Create config at runtime to ensure env vars are loaded
+      const connectionConfig = {
+        host: process.env.DATABASE_HOST,
+        user: process.env.DATABASE_USER,
+        password: process.env.DATABASE_PASSWORD,
+        database: process.env.DATABASE_NAME,
+        waitForConnections: true,
+        connectionLimit: 50,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+        namedPlaceholders: false
+      }
+
       pool = mysql.createPool(connectionConfig)
 
       // Test the connection
@@ -59,7 +59,7 @@ export async function executeQuery(query, params = []) {
     console.error('Query was:', query);
     console.error('Params were (original):', params);
     console.error('Full database error object:', error);
-    throw new Error(`Database query failed: ${error.message}`);
+    throw new Error(`Database query failed: ${error.message} `);
   } finally {
     if (connection) { // Only release if a connection was successfully obtained
       connection.release();

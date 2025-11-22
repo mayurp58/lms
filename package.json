@@ -12,6 +12,7 @@
     "setup": "npm run setup-dirs && npm run init-db",
     "postinstall": "npm run setup-dirs"
   },
+  "type": "module",
   "dependencies": {
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
@@ -19,6 +20,7 @@
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
     "js-cookie": "^3.0.5",
