@@ -449,6 +449,32 @@ const insertInitialData = async () => {
     )
   }
 
+  // Create default super admin user
+  const bcrypt = await import('bcryptjs')
+  const hashedPassword = await bcrypt.hash('admin123', 10)
+
+  try {
+    // Insert super admin user
+    const userResult = await executeQuery(
+      'INSERT IGNORE INTO users (email, password_hash, role, status) VALUES (?, ?, ?, ?)',
+      ['admin@gcfinance.com', hashedPassword, 'super_admin', 'active']
+    )
+
+    // If user was inserted, create profile
+    if (userResult.affectedRows > 0) {
+      const userId = userResult.insertId
+      await executeQuery(
+        'INSERT INTO user_profiles (user_id, first_name, last_name, phone, city, state) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, 'Super', 'Admin', '9999999999', 'Mumbai', 'Maharashtra']
+      )
+      console.log('✅ Default super admin created: admin@gcfinance.com / admin123')
+    }
+  } catch (error) {
+    // User might already exist, that's okay
+    if (!error.message.includes('Duplicate entry')) {
+      console.error('Error creating default admin:', error)
+    }
+  }
 
 }
 

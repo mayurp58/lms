@@ -90,11 +90,11 @@ This command will:
 - Set up upload directories (`public/uploads/documents`, etc.)
 - Create a default super admin user
 
-**Default Admin Credentials**:
-- Email: `admin@gcfinance.com`
-- Password: `admin123`
+**Default Super Admin Credentials**:
+- **Email**: `admin@gcfinance.com`
+- **Password**: `admin123`
 
-⚠️ **Change the default password immediately after first login!**
+⚠️ **IMPORTANT**: Change the default password immediately after first login for security!
 
 ## Manual Setup (Alternative)
 
