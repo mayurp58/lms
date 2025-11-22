@@ -146,6 +146,7 @@ const createTables = async () => {
       description TEXT,
       is_required BOOLEAN DEFAULT true,
       max_file_size_mb INT DEFAULT 5,
+      is_pdd BOOLEAN DEFAULT false,
       allowed_formats VARCHAR(255) DEFAULT 'pdf,jpg,jpeg,png',
       is_active INT NOT NULL DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

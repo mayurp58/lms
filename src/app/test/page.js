@@ -40,7 +40,7 @@ export default function TestPage() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">Banking System Test</h1>
-      
+
       <button
         onClick={testUsers}
         disabled={loading}
